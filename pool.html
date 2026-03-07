@@ -209,6 +209,123 @@ const BALL_COLORS = {
 let balls, currentPlayer, playerTypes, pocketedBalls, gameState, aiming, aimStart, aimEnd;
 let cueBallPlacing = false;
 
+// Sound effects via Web Audio API
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playPocketSound() {
+    // Deep satisfying thunk
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.25);
+    gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function playCollisionSound(impactSpeed) {
+    // Clack sound - volume proportional to impact
+    const vol = Math.min(0.3, impactSpeed / 20);
+    if (vol < 0.02) return;
+    const osc = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    osc2.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'triangle';
+    osc2.type = 'square';
+    const freq = 800 + impactSpeed * 40;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.06);
+    osc2.frequency.setValueAtTime(freq * 1.5, audioCtx.currentTime);
+    osc2.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.04);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+    osc.start(audioCtx.currentTime);
+    osc2.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.08);
+    osc2.stop(audioCtx.currentTime + 0.08);
+}
+
+function playScratchSound() {
+    // Scratchy descending buzz
+    const osc = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    osc2.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sawtooth';
+    osc2.type = 'square';
+    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.4);
+    osc2.frequency.setValueAtTime(415, audioCtx.currentTime);
+    osc2.frequency.exponentialRampToValueAtTime(105, audioCtx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+    osc.start(audioCtx.currentTime);
+    osc2.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.5);
+    osc2.stop(audioCtx.currentTime + 0.5);
+}
+
+function playGameOverSound(won) {
+    if (won) {
+        // Victorious ascending arpeggio
+        [0, 0.12, 0.24, 0.4].forEach((delay, i) => {
+            const freqs = [523, 659, 784, 1047];
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freqs[i], audioCtx.currentTime + delay);
+            gain.gain.setValueAtTime(0, audioCtx.currentTime + delay);
+            gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + delay + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay + 0.35);
+            osc.start(audioCtx.currentTime + delay);
+            osc.stop(audioCtx.currentTime + delay + 0.35);
+        });
+    } else {
+        // Sad descending tones
+        [0, 0.2, 0.4].forEach((delay, i) => {
+            const freqs = [392, 330, 262];
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freqs[i], audioCtx.currentTime + delay);
+            gain.gain.setValueAtTime(0, audioCtx.currentTime + delay);
+            gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + delay + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay + 0.4);
+            osc.start(audioCtx.currentTime + delay);
+            osc.stop(audioCtx.currentTime + delay + 0.4);
+        });
+    }
+}
+
+function playCushionSound(speed) {
+    const vol = Math.min(0.15, speed / 25);
+    if (vol < 0.02) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(250, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.05);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.06);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.06);
+}
+
 function createBalls() {
     balls = [];
     // Cue ball
@@ -316,10 +433,10 @@ function updatePhysics() {
         }
 
         // Cushion bounce
-        if (b.x - BALL_R < CUSHION) { b.x = CUSHION + BALL_R; b.vx = Math.abs(b.vx) * 0.8; }
-        if (b.x + BALL_R > W - CUSHION) { b.x = W - CUSHION - BALL_R; b.vx = -Math.abs(b.vx) * 0.8; }
-        if (b.y - BALL_R < CUSHION) { b.y = CUSHION + BALL_R; b.vy = Math.abs(b.vy) * 0.8; }
-        if (b.y + BALL_R > H - CUSHION) { b.y = H - CUSHION - BALL_R; b.vy = -Math.abs(b.vy) * 0.8; }
+        if (b.x - BALL_R < CUSHION) { playCushionSound(Math.abs(b.vx)); b.x = CUSHION + BALL_R; b.vx = Math.abs(b.vx) * 0.8; }
+        if (b.x + BALL_R > W - CUSHION) { playCushionSound(Math.abs(b.vx)); b.x = W - CUSHION - BALL_R; b.vx = -Math.abs(b.vx) * 0.8; }
+        if (b.y - BALL_R < CUSHION) { playCushionSound(Math.abs(b.vy)); b.y = CUSHION + BALL_R; b.vy = Math.abs(b.vy) * 0.8; }
+        if (b.y + BALL_R > H - CUSHION) { playCushionSound(Math.abs(b.vy)); b.y = H - CUSHION - BALL_R; b.vy = -Math.abs(b.vy) * 0.8; }
 
         // Pocket check
         for (const p of POCKETS) {
@@ -329,6 +446,7 @@ function updatePhysics() {
                 b.pocketed = true;
                 b.vx = 0;
                 b.vy = 0;
+                playPocketSound();
                 if (!shotPocketed) shotPocketed = [];
                 shotPocketed.push(b.id);
                 break;
@@ -363,6 +481,7 @@ function updatePhysics() {
                 const dot = dvx * nx + dvy * ny;
 
                 if (dot > 0) {
+                    playCollisionSound(dot);
                     a.vx -= dot * nx;
                     a.vy -= dot * ny;
                     b.vx += dot * nx;
@@ -430,8 +549,9 @@ function processShot() {
         return;
     }
 
-    // Cue ball pocketed - place it
+    // Cue ball pocketed - scratch
     if (cuePocketed) {
+        playScratchSound();
         const cue = balls.find(b => b.id === 0);
         cue.pocketed = false;
         cue.x = W * 0.25;
@@ -453,6 +573,7 @@ function processShot() {
 
 function endGame(winner) {
     gameState = 'over';
+    playGameOverSound(winner === currentPlayer);
     document.getElementById('overlayTitle').textContent = 'Player ' + winner + ' Wins!';
     document.getElementById('overlayMsg').textContent = 'Congratulations!';
     document.getElementById('overlay').classList.remove('hidden');
@@ -636,8 +757,9 @@ function getCanvasPos(e) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = W / rect.width;
     const scaleY = H / rect.height;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const touch = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : null);
+    const clientX = touch ? touch.clientX : e.clientX;
+    const clientY = touch ? touch.clientY : e.clientY;
     return {
         x: (clientX - rect.left) * scaleX,
         y: (clientY - rect.top) * scaleY
@@ -707,11 +829,11 @@ function handleEnd(e) {
 }
 
 canvas.addEventListener('mousedown', handleStart);
-canvas.addEventListener('mousemove', handleMove);
-canvas.addEventListener('mouseup', handleEnd);
+document.addEventListener('mousemove', handleMove);
+document.addEventListener('mouseup', handleEnd);
 canvas.addEventListener('touchstart', handleStart, { passive: false });
-canvas.addEventListener('touchmove', handleMove, { passive: false });
-canvas.addEventListener('touchend', handleEnd, { passive: false });
+document.addEventListener('touchmove', handleMove, { passive: false });
+document.addEventListener('touchend', handleEnd, { passive: false });
 
 document.getElementById('startBtn').addEventListener('click', init);
 document.getElementById('overlayBtn').addEventListener('click', init);

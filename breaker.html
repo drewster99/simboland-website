@@ -146,6 +146,62 @@ const COLORS = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6'
 
 let bricks, paddle, ball, score, lives, level, running, launched, animFrame;
 
+// Sound effects via Web Audio API
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// Each color gets a distinct pitch
+const BRICK_FREQUENCIES = {
+    '#e74c3c': 523.25, // C5 - red
+    '#e67e22': 587.33, // D5 - orange
+    '#f1c40f': 659.25, // E5 - yellow
+    '#2ecc71': 783.99, // G5 - green
+    '#3498db': 880.00, // A5 - blue
+    '#9b59b6': 987.77, // B5 - purple
+    '#888':    440.00, // A4 - damaged brick
+};
+
+function playBrickSound(color) {
+    const freq = BRICK_FREQUENCIES[color] || 660;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.12);
+}
+
+function playDeathSound() {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(250, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.6);
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.6);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.6);
+}
+
+function playPaddleSound() {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(330, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.06);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.06);
+}
+
 function createBricks() {
     bricks = [];
     for (let r = 0; r < BRICK_ROWS; r++) {
@@ -177,7 +233,8 @@ function init() {
 function resetLevel() {
     createBricks();
     paddle = { x: W / 2 - PADDLE_W / 2, y: H - 30, w: PADDLE_W, h: PADDLE_H };
-    ball = { x: W / 2, y: paddle.y - BALL_R - 1, dx: 3, dy: -3, r: BALL_R };
+    const startSpeed = 4 + level * 0.5;
+    ball = { x: W / 2, y: paddle.y - BALL_R - 1, dx: startSpeed, dy: -startSpeed, r: BALL_R };
     launched = false;
     updateUI();
 }
@@ -218,6 +275,7 @@ function update() {
     // Bottom - lose life
     if (ball.y + ball.r >= H) {
         lives--;
+        playDeathSound();
         updateUI();
         if (lives <= 0) {
             endGame(false);
@@ -240,6 +298,7 @@ function update() {
         // Ensure minimum vertical speed
         if (Math.abs(ball.dy) < 2) ball.dy = -2;
         ball.y = paddle.y - ball.r - 1;
+        playPaddleSound();
     }
 
     // Brick collision
@@ -250,6 +309,7 @@ function update() {
             ball.y + ball.r > brick.y &&
             ball.y - ball.r < brick.y + brick.h) {
 
+            const brickColor = brick.color;
             brick.hits--;
             if (brick.hits <= 0) {
                 brick.alive = false;
@@ -258,6 +318,7 @@ function update() {
                 brick.color = '#888';
                 score += 5;
             }
+            playBrickSound(brickColor);
             updateUI();
 
             // Determine bounce direction
@@ -289,7 +350,7 @@ function update() {
 
     // Speed cap
     const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-    const maxSpeed = 6 + level;
+    const maxSpeed = 8 + level;
     if (speed > maxSpeed) {
         ball.dx = (ball.dx / speed) * maxSpeed;
         ball.dy = (ball.dy / speed) * maxSpeed;
