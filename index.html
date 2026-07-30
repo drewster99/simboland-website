@@ -489,7 +489,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 40px;
-            max-width: 1100px;
+            max-width: 760px;
             margin: 0 auto;
         }
 
@@ -567,6 +567,15 @@
 
         .pool-card:hover .play-btn {
             box-shadow: 0 0 25px rgba(52, 152, 219, 0.5);
+        }
+
+        .rcempire-card .play-btn {
+            background: linear-gradient(135deg, #ff8c42, #e8622a);
+            color: #fff;
+        }
+
+        .rcempire-card:hover .play-btn {
+            box-shadow: 0 0 25px rgba(255, 140, 66, 0.5);
         }
 
         /* Footer */
@@ -683,6 +692,12 @@
             <span class="game-icon">&#127921;</span>
             <h3>8-Ball Pool</h3>
             <p>Line up your shots and sink all your balls before your opponent does!</p>
+            <span class="play-btn">PLAY NOW</span>
+        </a>
+        <a href="rcempire.html" class="game-card rcempire-card">
+            <span class="game-icon">&#127950;</span>
+            <h3>RC Empire</h3>
+            <p>Race, drift and bet your way from a stock brushed basher to a carbon-fibre monster &mdash; and learn how real RC cars actually work.</p>
             <span class="play-btn">PLAY NOW</span>
         </a>
     </div>
