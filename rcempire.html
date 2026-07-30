@@ -2842,6 +2842,7 @@ function thermalOutlook(spec, track) {
    a briefing costs one burst of simulation and revisiting it costs
    nothing. */
 const TRIAL_TIMEOUT_SECONDS = 260;
+const TRIAL_CACHE_LIMIT = 400;
 const trialTimeCache = Object.create(null);
 
 /** Skill whose paceFactor equals ASSUMED_PLAYER_PACE, so the version of you
@@ -2895,22 +2896,33 @@ function simulateFieldRace(field, track, playerSkill) {
         message: null, messageTimer: 0, endCountdown: 0,
     };
 
-    const dt = PHYSICS_DT;
-    const maxSteps = Math.ceil(TRIAL_TIMEOUT_SECONDS / dt);
-    // Run until everyone is done rather than stopping when the leader
-    // finishes, so every entrant gets a comparable time.
-    for (let steps = 0; steps < maxSteps && cars.some(c => !c.finished && !c.dnf); steps++) {
-        race.time += dt;
-        for (const car of cars) {
-            driveAI(car, dt);
-            if (!car.finished) stepCar(car, dt);
+    let times;
+    try {
+        const dt = PHYSICS_DT;
+        const maxSteps = Math.ceil(TRIAL_TIMEOUT_SECONDS / dt);
+        // Run until everyone is done rather than stopping when the leader
+        // finishes, so every entrant gets a comparable time.
+        for (let steps = 0; steps < maxSteps && cars.some(c => !c.finished && !c.dnf); steps++) {
+            race.time += dt;
+            for (const car of cars) {
+                driveAI(car, dt);
+                if (!car.finished) stepCar(car, dt);
+            }
+            resolveCarCollisions();
+            for (const car of cars) updateProgress(car, dt);
         }
-        resolveCarCollisions();
-        for (const car of cars) updateProgress(car, dt);
+        times = cars.map(c => c.finished ? c.finishTime : TRIAL_TIMEOUT_SECONDS);
+    } finally {
+        // Restore the real race even if the simulation threw. Leaking the
+        // throwaway one would leave the player driving a pricing ghost.
+        race = saved;
     }
 
-    const times = cars.map(c => c.finished ? c.finishTime : TRIAL_TIMEOUT_SECONDS);
-    race = saved;
+    // These are only ever a briefing away from being recomputed, so a crude
+    // flush is enough to stop the cache growing without bound over a session.
+    if (Object.keys(trialTimeCache).length > TRIAL_CACHE_LIMIT) {
+        for (const stale in trialTimeCache) delete trialTimeCache[stale];
+    }
     trialTimeCache[key] = times;
     return times;
 }
@@ -3332,6 +3344,7 @@ const AXLE_REAR = WHEELBASE / 2;
 const CORNER_STIFFNESS_PEAK = 0.125; // rad of slip where a race tire peaks
 const BRAKE_FORCE_N = 26;
 const MAX_SKID_MARKS = 900;
+const SKID_WIDTH = 0.075 * CAR_SPRITE_SCALE;
 const DRIFT_MIN_SPEED = 3.2;
 const DRIFT_MIN_SLIP = 0.20;        // rad of body slip to count as a drift
 const DRIFT_MONEY_PER_POINT = 0.30;
@@ -4206,13 +4219,24 @@ function drawTrackSurface() {
 }
 
 function drawSkidMarks() {
+    if (race.skidMarks.length === 0) return;
     rctx.lineCap = 'round';
-    for (const mark of race.skidMarks) {
-        rctx.strokeStyle = 'rgba(20,20,24,' + (mark.alpha * 0.5).toFixed(3) + ')';
-        rctx.lineWidth = mark.w;
+    rctx.lineWidth = SKID_WIDTH;
+    // Marks are grouped into a few opacity bands and each band drawn as one
+    // path. Stroking every mark separately meant hundreds of draw calls per
+    // frame once a drift-heavy race got going.
+    const BANDS = 4;
+    for (let band = 1; band <= BANDS; band++) {
+        let any = false;
         rctx.beginPath();
-        rctx.moveTo(mark.x1, mark.y1);
-        rctx.lineTo(mark.x2, mark.y2);
+        for (const mark of race.skidMarks) {
+            if (Math.ceil(mark.alpha * BANDS) !== band) continue;
+            rctx.moveTo(mark.x1, mark.y1);
+            rctx.lineTo(mark.x2, mark.y2);
+            any = true;
+        }
+        if (!any) continue;
+        rctx.strokeStyle = 'rgba(20,20,24,' + (band / BANDS * 0.5).toFixed(3) + ')';
         rctx.stroke();
     }
 }
@@ -4276,7 +4300,6 @@ function spawnTireEffects(car, dt, speed) {
         if (last) {
             race.skidMarks.push({
                 x1: last.x, y1: last.y, x2: wx, y2: wy,
-                w: 0.075 * CAR_SPRITE_SCALE,
                 alpha: clamp(Math.abs(car.slipAngle) * 2.2, 0.2, 1),
             });
         }
@@ -4777,9 +4800,7 @@ function showScreen(name) {
     // Leaving the race screen at any point must tear the race down, or the
     // animation loop and engine audio keep running in the background.
     if (currentScreen === 'race' && name !== 'race' && race && race.state !== 'over') {
-        race.state = 'over';
-        stopEngineAudio();
-        if (rafHandle) { cancelAnimationFrame(rafHandle); rafHandle = null; }
+        abandonRace();
     }
 
     currentScreen = name;
@@ -4795,6 +4816,21 @@ function showScreen(name) {
     else if (name === 'tracks') renderTrackSelect();
     else if (name === 'bet') renderBriefing();
     else if (name === 'academy') renderAcademy();
+}
+
+/** Navigating away mid-race gives up the race. The entry fee and any wager
+ *  were taken when it started, so say what it cost instead of letting the
+ *  money disappear without comment. */
+function abandonRace() {
+    race.state = 'over';
+    stopEngineAudio();
+    if (rafHandle) { cancelAnimationFrame(rafHandle); rafHandle = null; }
+    save.racesRun++;
+    persist();
+    const forfeited = race.plan ? race.plan.track.entryFee + race.plan.stake : 0;
+    toast(forfeited > 0
+        ? 'Race abandoned. ' + fmtMoney(forfeited) + ' entry fee and wager forfeited.'
+        : 'Race abandoned.', 'bad');
 }
 
 function wireNavigation() {
