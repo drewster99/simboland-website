@@ -147,7 +147,10 @@
         }
         #carPreview {
             width: 100%;
-            height: 180px;
+            /* Match the backing store so the car scales evenly. A fixed CSS
+               height against a fluid width squashes whatever is drawn. */
+            aspect-ratio: 700 / 360;
+            height: auto;
             display: block;
             background: radial-gradient(ellipse at center, #16163c 0%, #0d0d24 100%);
             border-radius: 12px;
@@ -325,7 +328,7 @@
             flex-direction: column;
         }
         .track-card.locked { opacity: 0.45; }
-        .track-card canvas { width: 100%; height: 130px; background: #0d0d24; border-radius: 10px; margin-bottom: 12px; }
+        .track-card canvas { width: 100%; aspect-ratio: 460 / 260; height: auto; background: #0d0d24; border-radius: 10px; margin-bottom: 12px; }
         .track-card h4 { font-size: 1.05rem; margin-bottom: 3px; }
         .track-card .surf { font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
         .track-card .tdesc { color: #8a8aaa; font-size: 0.82rem; line-height: 1.55; margin-bottom: 12px; flex: 1; }
@@ -421,6 +424,9 @@
             display: block;
             background: #10101f;
             max-width: 97vw;
+            /* Without this the width shrinks on a narrow screen while the
+               height stays at the attribute value, stretching the view. */
+            height: auto;
             touch-action: none;
         }
         .race-top {
@@ -841,22 +847,22 @@ const PARTS = {
        driftEase widens the slip-angle window where a slide stays catchable. */
     tires: [
         { name: 'Stock Hard Treaded', spec: 'Hard compound, moulded tread, no insert',
-          cost: 0, gripBySurface: { asphalt: 0.85, dirt: 0.80, polished: 0.55, carpet: 0.90 }, driftEase: 1.0, massKg: 0.06,
+          cost: 0, gripBySurface: { asphalt: 0.85, dirt: 0.80, polished: 0.55, carpet: 0.90 }, tread: 'treaded', driftEase: 1.0, massKg: 0.06,
           lesson: 'Kit tires are a hard compound so they last forever and work adequately on everything. <b>Compound</b> is the rubber hardness: softer rubber keys into the surface for more grip but wears out fast. Tread pattern matters far less than compound on hard surfaces.' },
         { name: 'Soft Rubber Slicks + Foam', spec: 'Soft compound slick, closed-cell foam insert',
-          cost: 900, gripBySurface: { asphalt: 1.25, dirt: 0.62, polished: 0.68, carpet: 1.30 }, driftEase: 0.85, massKg: 0.055,
+          cost: 900, gripBySurface: { asphalt: 1.25, dirt: 0.62, polished: 0.68, carpet: 1.30 }, tread: 'slick', driftEase: 0.85, massKg: 0.055,
           lesson: '<b>Slicks</b> have no tread because on a smooth hard surface tread only reduces contact area. The <b>foam insert</b> inside supports the sidewall so the tire does not balloon at speed. Put these on loose dirt and they just polish the surface &mdash; no tread to bite with.' },
         { name: 'Pin-Spike Dirt Tires', spec: 'Medium compound, tall pin knobs',
-          cost: 750, gripBySurface: { asphalt: 0.72, dirt: 1.22, polished: 0.50, carpet: 0.80 }, driftEase: 0.95, massKg: 0.075,
+          cost: 750, gripBySurface: { asphalt: 0.72, dirt: 1.22, polished: 0.50, carpet: 0.80 }, tread: 'pin', driftEase: 0.95, massKg: 0.075,
           lesson: 'On loose surfaces grip comes from <b>mechanical keying</b>, not friction: the pins dig in and shear the dirt. The same pins squirm and roll over on asphalt, which is why an off-road tire feels vague and greasy on pavement.' },
         { name: 'Hard PVC Drift Tires', spec: 'Rigid PVC sleeve, near-zero grip',
-          cost: 600, gripBySurface: { asphalt: 0.44, dirt: 0.40, polished: 0.38, carpet: 0.46 }, driftEase: 2.4, massKg: 0.05,
+          cost: 600, gripBySurface: { asphalt: 0.44, dirt: 0.40, polished: 0.38, carpet: 0.46 }, tread: 'drift', driftEase: 2.4, massKg: 0.05,
           lesson: 'RC drifting uses hard plastic sleeves so the car slides at any speed and stays controllable. Low grip is the <i>point</i>: it makes the slide slow and predictable enough to steer with the throttle. Terrible for lap times, unbeatable for drift points.' },
         { name: 'Dual-Compound Race Slicks', spec: 'Soft centre / firm shoulder, glued + trued',
-          cost: 3400, gripBySurface: { asphalt: 1.42, dirt: 0.60, polished: 0.72, carpet: 1.50 }, driftEase: 0.75, massKg: 0.058,
+          cost: 3400, gripBySurface: { asphalt: 1.42, dirt: 0.60, polished: 0.72, carpet: 1.50 }, tread: 'slick', driftEase: 0.75, massKg: 0.058,
           lesson: 'Racers <b>glue</b> tires to the rim so they cannot balloon off, then <b>true</b> them on a lathe so every tire is exactly the same diameter. A soft centre gives grip while a firmer shoulder stops the tire folding over in hard corners.' },
         { name: 'All-Surface Belted Radials', spec: 'Belted carcass, medium compound, fine tread',
-          cost: 2600, gripBySurface: { asphalt: 1.12, dirt: 1.02, polished: 0.80, carpet: 1.15 }, driftEase: 1.05, massKg: 0.07,
+          cost: 2600, gripBySurface: { asphalt: 1.12, dirt: 1.02, polished: 0.80, carpet: 1.15 }, tread: 'radial', driftEase: 1.05, massKg: 0.07,
           lesson: 'A <b>belted</b> tire has a fibre layer under the tread that stops it expanding at high RPM, so it stays stable everywhere. This is the never-wrong answer, never the fastest one. Specialists beat generalists on their home surface &mdash; that trade-off is the whole game.' },
     ],
 
@@ -1816,122 +1822,318 @@ function renderCarPreview(spec) {
     ctx.clearRect(0, 0, cv.width, cv.height);
     ctx.save();
     ctx.translate(cv.width / 2, cv.height / 2);
-    const s = 3.05;
+    // The car is drawn in metres, so scale to fit the canvas rather than
+    // hard-coding a factor: the sprite is about 1.0 m long and 0.5 m wide
+    // once CAR_SPRITE_SCALE is applied, and it is rotated to point up the
+    // canvas, so length is bounded by the height.
+    const spriteLength = 0.42 * CAR_SPRITE_SCALE;
+    const spriteWidth = 0.21 * CAR_SPRITE_SCALE;
+    const s = Math.min(cv.width / (spriteWidth * 1.3), cv.height / (spriteLength * 1.04));
     ctx.scale(s, s);
     ctx.rotate(-Math.PI / 2);   // point the car up the canvas
     drawCarShape(ctx, spec, '#ff8c42', 0, 0, true);
     ctx.restore();
 
-    // Callout labels for the fitted hardware.
-    ctx.font = '11px "SF Mono", Consolas, monospace';
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    /* Callout labels for the fitted hardware. The canvas backing store is
+       wider than the box it is drawn into, so type has to be sized in canvas
+       units well above its apparent size or it comes out illegibly small. */
+    const label = 21;
+    ctx.font = label + 'px "SF Mono", Consolas, monospace';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,255,255,0.60)';
     ctx.textAlign = 'left';
-    ctx.fillText(spec.parts.motor.name, 12, 20);
-    ctx.fillText(spec.parts.battery.name, 12, 36);
+    ctx.fillText(spec.parts.motor.name, 18, 16);
+    ctx.fillText(spec.parts.battery.name, 18, 16 + label * 1.25);
     ctx.textAlign = 'right';
-    ctx.fillText(spec.parts.tires.name, cv.width - 12, 20);
-    ctx.fillText(spec.parts.drivetrain.is4wd ? '4WD' : '2WD', cv.width - 12, 36);
+    ctx.fillText(spec.parts.tires.name, cv.width - 18, 16);
+    ctx.fillText(spec.parts.drivetrain.is4wd ? '4WD shaft' : '2WD rear',
+        cv.width - 18, 16 + label * 1.25);
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(255,224,102,0.6)';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = 'rgba(255,224,102,0.75)';
     ctx.fillText(spec.pinion + 'T / ' + SPUR_TEETH + 'T  =  ' + spec.finalDrive.toFixed(2) + ':1',
-        12, cv.height - 14);
+        18, cv.height - 18);
 }
 
 /** Draw a top-down car in metres, centred on the CG, nose toward +X.
  *  Used by both the garage preview and the race renderer. */
+/** Draw a top-down 1/10-scale touring car, centred on the CG with the nose
+ *  toward +X. Everything is in metres and then exaggerated by
+ *  CAR_SPRITE_SCALE, because a true-to-scale 40 cm car on a 3 m lane is too
+ *  small to read while driving.
+ *
+ *  `detailed` is the garage's close-up treatment. On track the car is only
+ *  about thirty pixels long, so the fine work is skipped and the silhouette,
+ *  glass, stripe and wheels do the talking.
+ */
+/** Draw a top-down 1/10-scale touring car, centred on the CG with the nose
+ *  toward +X. Everything is in metres and then exaggerated by
+ *  CAR_SPRITE_SCALE, because a true-to-scale 40 cm car on a 3 m lane is too
+ *  small to read while driving.
+ *
+ *  `detailed` is the garage's close-up treatment. On track the car is only
+ *  about thirty pixels long, so the fine work is skipped and the silhouette,
+ *  glass, stripe and wheels do the talking.
+ */
 function drawCarShape(ctx, spec, bodyColor, steerRad, camberRad, detailed) {
-    const L = 0.40 * CAR_SPRITE_SCALE;
-    const Wd = 0.19 * CAR_SPRITE_SCALE;
+    const hx = 0.40 * CAR_SPRITE_SCALE / 2;        // half length
+    const hy = 0.19 * CAR_SPRITE_SCALE / 2;        // half width
     const wheelR = WHEEL_RADIUS * CAR_SPRITE_SCALE;
     const wheelW = 0.030 * CAR_SPRITE_SCALE;
     const axleX = (WHEELBASE / 2) * CAR_SPRITE_SCALE;
     const axleY = (TRACK_WIDTH_CAR / 2) * CAR_SPRITE_SCALE;
-    const isDrift = spec.parts.tires.driftEase > 1.8;
+    const tread = spec.parts.tires.tread || 'treaded';
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    roundRect(ctx, -L / 2 + 0.03, -Wd / 2 + 0.03, L, Wd, 0.06);
+    /* ---- Shell outline -------------------------------------------------
+       A narrow nose, fenders swelling to full width over each axle, a pinched
+       waist between them and a tapered tail. The width has to change a lot
+       along the length or the silhouette reads as a van from above. */
+    const shell = () => {
+        ctx.beginPath();
+        ctx.moveTo(hx * 1.00, 0);
+        ctx.quadraticCurveTo(hx * 0.99, hy * 0.30, hx * 0.94, hy * 0.44);   // nose
+        ctx.quadraticCurveTo(hx * 0.80, hy * 0.72, hx * 0.66, hy * 0.96);   // front fender
+        ctx.quadraticCurveTo(hx * 0.52, hy * 1.03, hx * 0.38, hy * 0.95);
+        ctx.quadraticCurveTo(hx * 0.20, hy * 0.84, hx * 0.00, hy * 0.80);   // waist
+        ctx.quadraticCurveTo(hx * -0.26, hy * 0.82, hx * -0.44, hy * 0.97); // rear haunch
+        ctx.quadraticCurveTo(hx * -0.58, hy * 1.04, hx * -0.72, hy * 0.97);
+        ctx.quadraticCurveTo(hx * -0.90, hy * 0.88, hx * -0.98, hy * 0.62); // tail shoulder
+        ctx.lineTo(hx * -1.00, hy * 0.30);
+        ctx.lineTo(hx * -1.00, hy * -0.30);
+        ctx.lineTo(hx * -0.98, hy * -0.62);
+        ctx.quadraticCurveTo(hx * -0.90, hy * -0.88, hx * -0.72, hy * -0.97);
+        ctx.quadraticCurveTo(hx * -0.58, hy * -1.04, hx * -0.44, hy * -0.97);
+        ctx.quadraticCurveTo(hx * -0.26, hy * -0.82, hx * 0.00, hy * -0.80);
+        ctx.quadraticCurveTo(hx * 0.20, hy * -0.84, hx * 0.38, hy * -0.95);
+        ctx.quadraticCurveTo(hx * 0.52, hy * -1.03, hx * 0.66, hy * -0.96);
+        ctx.quadraticCurveTo(hx * 0.80, hy * -0.72, hx * 0.94, hy * -0.44);
+        ctx.quadraticCurveTo(hx * 0.99, hy * -0.30, hx * 1.00, 0);
+        ctx.closePath();
+    };
+
+    // ---- Ground shadow, offset so the car reads as sitting above the track
+    ctx.save();
+    ctx.translate(hy * 0.14, hy * 0.18);
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    shell();
+    ctx.fill();
+    ctx.restore();
+
+    /* ---- Rear wing, mounted clear of the tail so it is actually visible.
+       Drawn before the shell so its mounts disappear under the bodywork. */
+    const wingX = -hx * 1.06;
+    ctx.fillStyle = shade(bodyColor, 0.30);
+    roundRect(ctx, wingX - hx * 0.07, -hy * 0.92, hx * 0.15, hy * 1.84, hy * 0.05);
+    ctx.fill();
+    if (detailed) {
+        ctx.fillStyle = shade(bodyColor, 0.20);
+        for (const side of [-1, 1]) {           // endplates
+            roundRect(ctx, wingX - hx * 0.11, side * hy * 0.84 - hy * 0.09,
+                hx * 0.24, hy * 0.18, hy * 0.03);
+            ctx.fill();
+        }
+        ctx.fillStyle = shade(bodyColor, 0.42);  // mounts back to the deck
+        for (const side of [-1, 1]) {
+            roundRect(ctx, wingX, side * hy * 0.34 - hy * 0.05, hx * 0.20, hy * 0.10, hy * 0.02);
+            ctx.fill();
+        }
+    }
+
+    // ---- Painted shell
+    const paint = ctx.createLinearGradient(0, -hy, 0, hy);
+    paint.addColorStop(0.00, shade(bodyColor, 0.62));
+    paint.addColorStop(0.16, shade(bodyColor, 1.20));
+    paint.addColorStop(0.50, bodyColor);
+    paint.addColorStop(0.86, shade(bodyColor, 0.68));
+    paint.addColorStop(1.00, shade(bodyColor, 0.46));
+    ctx.fillStyle = paint;
+    shell();
     ctx.fill();
 
-    // Wheels: front pair takes steering plus static toe, and camber shows
-    // as a narrower contact patch.
-    const camberSquash = 1 - Math.min(0.45, Math.abs(camberRad) * 4.2);
+    // ---- Livery and shading, kept inside the shell
+    ctx.save();
+    shell();
+    ctx.clip();
+    // Twin centre stripes
+    ctx.fillStyle = 'rgba(255,255,255,0.20)';
+    ctx.fillRect(-hx * 1.05, -hy * 0.20, hx * 2.1, hy * 0.13);
+    ctx.fillRect(-hx * 1.05, hy * 0.07, hx * 2.1, hy * 0.13);
+    // Darker sills down each flank give the body some roundness
+    ctx.fillStyle = 'rgba(0,0,0,0.20)';
+    ctx.fillRect(-hx * 1.05, -hy * 1.05, hx * 2.1, hy * 0.14);
+    ctx.fillRect(-hx * 1.05, hy * 0.91, hx * 2.1, hy * 0.14);
+    ctx.restore();
+
+    /* ---- Cabin: windscreen, opaque roof, rear window. Seen from above the
+       roof hides the middle, so glass shows as a band fore and aft. */
+    const cabin = () => {
+        ctx.beginPath();
+        ctx.moveTo(hx * 0.34, -hy * 0.40);
+        ctx.quadraticCurveTo(hx * 0.38, 0, hx * 0.34, hy * 0.40);
+        ctx.quadraticCurveTo(hx * 0.14, hy * 0.60, hx * -0.10, hy * 0.62);
+        ctx.quadraticCurveTo(hx * -0.40, hy * 0.60, hx * -0.54, hy * 0.42);
+        ctx.quadraticCurveTo(hx * -0.60, 0, hx * -0.54, -hy * 0.42);
+        ctx.quadraticCurveTo(hx * -0.40, -hy * 0.60, hx * -0.10, -hy * 0.62);
+        ctx.quadraticCurveTo(hx * 0.14, -hy * 0.60, hx * 0.34, -hy * 0.40);
+        ctx.closePath();
+    };
+    const glass = ctx.createLinearGradient(hx * 0.4, 0, -hx * 0.6, 0);
+    glass.addColorStop(0.00, 'rgba(126,166,205,0.50)');
+    glass.addColorStop(0.26, 'rgba(20,26,44,0.93)');
+    glass.addColorStop(1.00, 'rgba(30,38,62,0.90)');
+    ctx.fillStyle = glass;
+    cabin();
+    ctx.fill();
+
+    // Opaque roof, leaving only a windscreen band and a rear window showing.
+    // A roof catches more light than the flanks, so it is lifted slightly.
+    const roofPaint = ctx.createLinearGradient(0, -hy * 0.55, 0, hy * 0.55);
+    roofPaint.addColorStop(0, shade(bodyColor, 0.84));
+    roofPaint.addColorStop(0.35, shade(bodyColor, 1.10));
+    roofPaint.addColorStop(1, shade(bodyColor, 0.74));
+    ctx.fillStyle = roofPaint;
+    ctx.beginPath();
+    ctx.moveTo(hx * 0.18, -hy * 0.44);
+    ctx.quadraticCurveTo(hx * 0.06, -hy * 0.53, hx * -0.14, -hy * 0.54);
+    ctx.quadraticCurveTo(hx * -0.36, -hy * 0.52, hx * -0.44, -hy * 0.38);
+    ctx.quadraticCurveTo(hx * -0.48, 0, hx * -0.44, hy * 0.38);
+    ctx.quadraticCurveTo(hx * -0.36, hy * 0.52, hx * -0.14, hy * 0.54);
+    ctx.quadraticCurveTo(hx * 0.06, hy * 0.53, hx * 0.18, hy * 0.44);
+    ctx.quadraticCurveTo(hx * 0.24, 0, hx * 0.18, -hy * 0.44);
+    ctx.closePath();
+    ctx.fill();
+
+    if (detailed) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.16)';   // pillar / glass edge
+        ctx.lineWidth = hy * 0.035;
+        cabin();
+        ctx.stroke();
+    }
+
+    // ---- Lights, mirrors, vents
+    if (detailed) {
+        ctx.fillStyle = 'rgba(255,242,205,0.95)';
+        for (const side of [-1, 1]) {
+            roundRect(ctx, hx * 0.80, side * hy * 0.34 - hy * 0.09, hx * 0.11, hy * 0.18, hy * 0.05);
+            ctx.fill();
+        }
+        ctx.fillStyle = 'rgba(255,72,52,0.90)';
+        for (const side of [-1, 1]) {
+            roundRect(ctx, -hx * 0.96, side * hy * 0.40 - hy * 0.08, hx * 0.08, hy * 0.16, hy * 0.04);
+            ctx.fill();
+        }
+        ctx.fillStyle = shade(bodyColor, 0.50);       // mirrors
+        for (const side of [-1, 1]) {
+            roundRect(ctx, hx * 0.26, side * hy * 0.84 - hy * 0.05, hx * 0.10, hy * 0.11, hy * 0.03);
+            ctx.fill();
+        }
+        // Rear deck vent with the motor and its cooling visible through it
+        ctx.fillStyle = 'rgba(10,10,16,0.78)';
+        roundRect(ctx, -hx * 0.90, -hy * 0.30, hx * 0.30, hy * 0.60, hy * 0.05);
+        ctx.fill();
+        ctx.fillStyle = '#9aa0aa';
+        ctx.beginPath();
+        ctx.arc(-hx * 0.75, 0, hy * 0.21, 0, Math.PI * 2);
+        ctx.fill();
+        if (spec.parts.cooling.coolRate > 1.2) {
+            ctx.strokeStyle = '#6ee79b';
+            ctx.lineWidth = hy * 0.04;
+            for (let i = -2; i <= 2; i++) {
+                ctx.beginPath();
+                ctx.moveTo(-hx * 0.87, i * hy * 0.10);
+                ctx.lineTo(-hx * 0.64, i * hy * 0.10);
+                ctx.stroke();
+            }
+        }
+        // Nose lip
+        ctx.fillStyle = shade(bodyColor, 0.40);
+        ctx.beginPath();
+        ctx.moveTo(hx * 0.995, 0);
+        ctx.quadraticCurveTo(hx * 0.97, hy * 0.36, hx * 0.90, hy * 0.50);
+        ctx.lineTo(hx * 0.86, hy * 0.42);
+        ctx.quadraticCurveTo(hx * 0.93, hy * 0.30, hx * 0.95, 0);
+        ctx.quadraticCurveTo(hx * 0.93, -hy * 0.30, hx * 0.86, -hy * 0.42);
+        ctx.lineTo(hx * 0.90, -hy * 0.50);
+        ctx.quadraticCurveTo(hx * 0.97, -hy * 0.36, hx * 0.995, 0);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // ---- Shell outline last, so every panel sits inside a crisp edge
+    ctx.strokeStyle = 'rgba(0,0,0,0.50)';
+    ctx.lineWidth = hy * 0.045;
+    shell();
+    ctx.stroke();
+
+    /* ---- Wheels --------------------------------------------------------
+       Over the shell, sitting in a soft dark arch so they read as being in a
+       cut-out rather than bolted on top. Front wheels take steering plus
+       static toe; camber narrows the visible contact patch. */
+    const camberSquash = 1 - Math.min(0.42, Math.abs(camberRad) * 4.0);
     for (const wx of [axleX, -axleX]) {
         for (const wy of [axleY, -axleY]) {
             ctx.save();
             ctx.translate(wx, wy);
             if (wx > 0) ctx.rotate(steerRad + (wy > 0 ? -spec.toeRad : spec.toeRad));
             const w = wheelW * (wx > 0 ? camberSquash : 1);
-            ctx.fillStyle = isDrift ? '#d8d8dc' : '#1b1b20';
-            roundRect(ctx, -wheelR, -w / 2, wheelR * 2, w, 0.02);
+
+            ctx.fillStyle = 'rgba(0,0,0,0.38)';          // arch shadow
+            roundRect(ctx, -wheelR * 1.06, -w * 0.72, wheelR * 2.12, w * 1.44, w * 0.5);
             ctx.fill();
+
+            const rubber = tread === 'drift' ? '#e4e4ea' : '#17171d';
+            ctx.fillStyle = rubber;
+            roundRect(ctx, -wheelR, -w / 2, wheelR * 2, w, w * 0.30);
+            ctx.fill();
+
             if (detailed) {
-                ctx.strokeStyle = isDrift ? '#9a9aa2' : '#2f2f38';
-                ctx.lineWidth = 0.008;
-                ctx.stroke();
-                // Wheel hub
-                ctx.fillStyle = '#8a8a95';
+                if (tread === 'treaded' || tread === 'radial') {
+                    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                    ctx.lineWidth = w * 0.09;
+                    const blocks = tread === 'treaded' ? 5 : 7;
+                    for (let i = 0; i < blocks; i++) {
+                        const t = -wheelR + wheelR * 2 * (i + 0.5) / blocks;
+                        ctx.beginPath();
+                        ctx.moveTo(t, -w * 0.40);
+                        ctx.lineTo(t, w * 0.40);
+                        ctx.stroke();
+                    }
+                } else if (tread === 'pin') {
+                    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+                    for (let i = 0; i < 4; i++) {
+                        for (const row of [-0.25, 0.25]) {
+                            const t = -wheelR * 0.72 + wheelR * 1.44 * i / 3;
+                            ctx.beginPath();
+                            ctx.arc(t, row * w, w * 0.10, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                } else {
+                    ctx.fillStyle = tread === 'drift'
+                        ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.10)';
+                    ctx.fillRect(-wheelR * 0.82, -w * 0.18, wheelR * 1.64, w * 0.12);
+                }
+                ctx.fillStyle = '#848a95';                // wheel hex
                 ctx.beginPath();
-                ctx.arc(0, 0, wheelR * 0.28, 0, Math.PI * 2);
+                ctx.arc(0, 0, w * 0.27, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#474c55';
+                ctx.beginPath();
+                ctx.arc(0, 0, w * 0.12, 0, Math.PI * 2);
                 ctx.fill();
             }
             ctx.restore();
         }
     }
 
-    // Body shell
-    const grad = ctx.createLinearGradient(0, -Wd / 2, 0, Wd / 2);
-    grad.addColorStop(0, shade(bodyColor, 1.25));
-    grad.addColorStop(0.45, bodyColor);
-    grad.addColorStop(1, shade(bodyColor, 0.62));
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(L / 2, -Wd * 0.30);
-    ctx.quadraticCurveTo(L * 0.56, 0, L / 2, Wd * 0.30);
-    ctx.lineTo(-L * 0.30, Wd / 2);
-    ctx.quadraticCurveTo(-L / 2, Wd * 0.42, -L / 2, Wd * 0.20);
-    ctx.lineTo(-L / 2, -Wd * 0.20);
-    ctx.quadraticCurveTo(-L / 2, -Wd * 0.42, -L * 0.30, -Wd / 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-    ctx.lineWidth = 0.012;
-    ctx.stroke();
-
-    // Cockpit / windscreen
-    ctx.fillStyle = 'rgba(10,10,30,0.55)';
-    roundRect(ctx, -L * 0.06, -Wd * 0.28, L * 0.26, Wd * 0.56, 0.03);
-    ctx.fill();
-
-    // Rear wing
-    ctx.fillStyle = shade(bodyColor, 0.45);
-    roundRect(ctx, -L / 2 - 0.035, -Wd * 0.46, 0.055, Wd * 0.92, 0.015);
-    ctx.fill();
-
+    // ---- Aerial, last so it sits over everything
     if (detailed) {
-        // Battery pack and motor can visible through the chassis
-        ctx.fillStyle = 'rgba(40,120,60,0.75)';
-        roundRect(ctx, -L * 0.20, -Wd * 0.34, L * 0.30, Wd * 0.30, 0.02);
-        ctx.fill();
-        ctx.fillStyle = '#b8b8c0';
+        ctx.strokeStyle = 'rgba(235,235,245,0.5)';
+        ctx.lineWidth = hy * 0.045;
         ctx.beginPath();
-        ctx.arc(-L * 0.22, Wd * 0.20, 0.055, 0, Math.PI * 2);
-        ctx.fill();
-        if (spec.parts.cooling.coolRate > 1.2) {
-            ctx.strokeStyle = '#6ee79b';
-            ctx.lineWidth = 0.01;
-            for (let i = -2; i <= 2; i++) {
-                ctx.beginPath();
-                ctx.moveTo(-L * 0.22 - 0.05, Wd * 0.20 + i * 0.022);
-                ctx.lineTo(-L * 0.22 + 0.05, Wd * 0.20 + i * 0.022);
-                ctx.stroke();
-            }
-        }
-        if (spec.parts.gyro.maxGain > 0) {
-            ctx.fillStyle = '#c471ed';
-            roundRect(ctx, L * 0.08, Wd * 0.14, 0.05, 0.05, 0.01);
-            ctx.fill();
-        }
+        ctx.moveTo(-hx * 0.24, -hy * 0.66);
+        ctx.lineTo(-hx * 0.40, -hy * 1.06);
+        ctx.stroke();
     }
 }
 
