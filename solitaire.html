@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solitaire - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#4ade80;letter-spacing:2px}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+.chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:7px 15px;font-size:.85rem;font-variant-numeric:tabular-nums}
+.chip b{color:#4ade80}
+.btn{padding:8px 18px;border:none;border-radius:20px;font-weight:600;cursor:pointer;font-family:inherit;font-size:.85rem;background:linear-gradient(135deg,#4ade80,#16a34a);color:#052e16}
+.btn:hover{box-shadow:0 0 16px rgba(74,222,128,.45)}
+.btn.ghost{background:rgba(255,255,255,.07);color:#ccc;border:1px solid rgba(255,255,255,.15)}
+canvas{background:#14532d;border-radius:12px;border:2px solid rgba(255,255,255,.08);display:block;max-width:97vw;height:auto;cursor:pointer;touch-action:none}
+.help{color:#7a7a9a;font-size:.8rem;text-align:center;line-height:1.6;max-width:640px}
+.overlay{position:fixed;inset:0;background:rgba(4,6,20,.85);display:flex;align-items:center;justify-content:center;z-index:60}
+.overlay.hidden{display:none}
+.obox{background:#0f2e1c;border:2px solid #4ade80;border-radius:18px;padding:32px 40px;text-align:center;max-width:400px}
+.obox h2{font-size:1.85rem;margin-bottom:8px;color:#4ade80;letter-spacing:2px}
+.obox p{color:#a7d3b8;margin-bottom:18px;line-height:1.6;font-size:.92rem}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>SOLITAIRE</h1></div>
+<div class="wrap">
+  <div class="bar">
+    <button class="btn" id="newBtn">New Deal</button>
+    <button class="btn ghost" id="undoBtn">Undo</button>
+    <button class="btn ghost" id="autoBtn">Auto Finish</button>
+    <div class="chip">Moves <b id="moves">0</b></div>
+    <div class="chip">Time <b id="time">0:00</b></div>
+    <div class="chip">Won <b id="won">0</b></div>
+  </div>
+  <canvas id="game" width="980" height="620"></canvas>
+  <p class="help">Klondike, turn one. Click the stock to deal, click a card to pick it up, click where it goes.
+     Double-click sends a card straight to its foundation. Build the tableau down in alternating colours, kings into empty columns.</p>
+</div>
+<div class="overlay hidden" id="ov"><div class="obox">
+  <h2 id="ovTitle">You Win</h2><p id="ovMsg"></p>
+  <button class="btn" id="ovBtn">Deal Again</button>
+</div></div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const CW=92,CH=128,GAP=14,TOPY=22,TABY=TOPY+CH+26,FAN=26,FANDOWN=13;
+const SUITS=['S','H','D','C'], RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const RED=s=>s==='H'||s==='D';
+const GLYPH={S:'♠',H:'♥',D:'♦',C:'♣'};
+
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function snd(f0,f1,d,t,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type=t||'sine';o.frequency.setValueAtTime(f0,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+d);
+g.gain.setValueAtTime(v||.04,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.02);}
+
+let wins=0; try{wins=parseInt(localStorage.getItem('solitaireWins')||'0',10)||0;}catch(e){}
+let G, history=[];
+
+function newDeal(){
+  const deck=[];
+  for(const s of SUITS) for(let r=0;r<13;r++) deck.push({s,r,up:false});
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+  G={stock:[],waste:[],found:[[],[],[],[]],tab:[[],[],[],[],[],[],[]],
+     sel:null,moves:0,t:0,over:false,lastClick:0,lastCard:null};
+  for(let c=0;c<7;c++) for(let i=0;i<=c;i++){
+    const card=deck.pop(); card.up=(i===c); G.tab[c].push(card);
+  }
+  G.stock=deck;
+  history=[];
+  document.getElementById('ov').classList.add('hidden');
+  sync();
+}
+function snapshot(){
+  history.push(JSON.stringify({stock:G.stock,waste:G.waste,found:G.found,tab:G.tab,moves:G.moves}));
+  if(history.length>60) history.shift();
+}
+function undo(){
+  if(!history.length) return;
+  const h=JSON.parse(history.pop());
+  G.stock=h.stock;G.waste=h.waste;G.found=h.found;G.tab=h.tab;G.moves=h.moves;G.sel=null;
+  snd(320,240,.08,'sine',.03); sync();
+}
+
+/* ---- Geometry ---------------------------------------------------------- */
+function foundXY(i){ return {x:GAP+(3+i)*(CW+GAP), y:TOPY}; }
+function stockXY(){ return {x:GAP, y:TOPY}; }
+function wasteXY(){ return {x:GAP+CW+GAP, y:TOPY}; }
+function tabXY(c,i){
+  let y=TABY;
+  for(let k=0;k<i;k++) y += G.tab[c][k].up?FAN:FANDOWN;
+  return {x:GAP+c*(CW+GAP), y};
+}
+function hitTest(mx,my){
+  const s=stockXY();
+  if(mx>=s.x&&mx<=s.x+CW&&my>=s.y&&my<=s.y+CH) return {zone:'stock'};
+  const w=wasteXY();
+  if(G.waste.length&&mx>=w.x&&mx<=w.x+CW&&my>=w.y&&my<=w.y+CH) return {zone:'waste'};
+  for(let i=0;i<4;i++){
+    const f=foundXY(i);
+    if(mx>=f.x&&mx<=f.x+CW&&my>=f.y&&my<=f.y+CH) return {zone:'found',i};
+  }
+  for(let c=0;c<7;c++){
+    const pile=G.tab[c];
+    if(!pile.length){
+      const p=tabXY(c,0);
+      if(mx>=p.x&&mx<=p.x+CW&&my>=p.y&&my<=p.y+CH) return {zone:'tab',c,i:0,empty:true};
+      continue;
+    }
+    for(let i=pile.length-1;i>=0;i--){
+      const p=tabXY(c,i);
+      const h=(i===pile.length-1)?CH:(pile[i].up?FAN:FANDOWN);
+      if(mx>=p.x&&mx<=p.x+CW&&my>=p.y&&my<=p.y+h) return {zone:'tab',c,i};
+    }
+  }
+  return null;
+}
+
+/* ---- Rules ------------------------------------------------------------- */
+function canStackTab(card,onto){
+  if(!onto) return card.r===12;                 // only a king onto an empty column
+  return onto.up && RED(card.s)!==RED(onto.s) && card.r===onto.r-1;
+}
+function canStackFound(card,pile){
+  if(!pile.length) return card.r===0;
+  const top=pile[pile.length-1];
+  return top.s===card.s && card.r===top.r+1;
+}
+function foundIndexFor(card){
+  for(let i=0;i<4;i++) if(canStackFound(card,G.found[i])) return i;
+  return -1;
+}
+function takeSelection(){
+  const s=G.sel; if(!s) return null;
+  if(s.zone==='waste') return [G.waste[G.waste.length-1]];
+  if(s.zone==='found') return [G.found[s.i][G.found[s.i].length-1]];
+  return G.tab[s.c].slice(s.i);
+}
+function removeSelection(){
+  const s=G.sel;
+  if(s.zone==='waste') G.waste.pop();
+  else if(s.zone==='found') G.found[s.i].pop();
+  else {
+    G.tab[s.c].length=s.i;
+    const p=G.tab[s.c];
+    if(p.length&&!p[p.length-1].up){ p[p.length-1].up=true; }
+  }
+}
+function tryMoveTo(target){
+  const cards=takeSelection();
+  if(!cards||!cards.length) return false;
+  if(target.zone==='found'){
+    if(cards.length!==1||!canStackFound(cards[0],G.found[target.i])) return false;
+    snapshot(); removeSelection(); G.found[target.i].push(cards[0]);
+  } else if(target.zone==='tab'){
+    const pile=G.tab[target.c];
+    if(!canStackTab(cards[0],pile[pile.length-1])) return false;
+    snapshot(); removeSelection(); for(const c of cards) pile.push(c);
+  } else return false;
+  G.moves++; snd(520,660,.06,'sine',.035); checkWin(); sync(); return true;
+}
+function autoSend(card,from){
+  const fi=foundIndexFor(card);
+  if(fi<0) return false;
+  G.sel=from;
+  return tryMoveTo({zone:'found',i:fi});
+}
+function checkWin(){
+  if(G.found.every(f=>f.length===13)&&!G.over){
+    G.over=true; wins++;
+    try{localStorage.setItem('solitaireWins',String(wins));}catch(e){}
+    document.getElementById('ovTitle').textContent='YOU WIN';
+    document.getElementById('ovMsg').innerHTML='Cleared in <b>'+G.moves+'</b> moves and <b>'+fmt(G.t)+'</b>.';
+    document.getElementById('ov').classList.remove('hidden');
+    for(let i=0;i<6;i++) setTimeout(()=>snd(500+i*140,900+i*160,.2,'sine',.05),i*130);
+    sync();
+  }
+}
+function autoFinish(){
+  let moved=true, guard=0;
+  while(moved&&guard++<200){
+    moved=false;
+    if(G.waste.length){
+      const c=G.waste[G.waste.length-1];
+      if(foundIndexFor(c)>=0&&autoSend(c,{zone:'waste'})) { moved=true; continue; }
+    }
+    for(let t=0;t<7;t++){
+      const p=G.tab[t];
+      if(!p.length) continue;
+      const c=p[p.length-1];
+      if(c.up&&foundIndexFor(c)>=0&&autoSend(c,{zone:'tab',c:t,i:p.length-1})){ moved=true; break; }
+    }
+  }
+  G.sel=null; sync();
+}
+
+/* ---- Input ------------------------------------------------------------- */
+cv.addEventListener('click',e=>{
+  if(G.over) return;
+  actx();
+  const r=cv.getBoundingClientRect(), sc=cv.width/r.width;
+  const mx=(e.clientX-r.left)*sc, my=(e.clientY-r.top)*sc;
+  const hit=hitTest(mx,my);
+  const now=performance.now();
+  const dbl = now-G.lastClick<320;
+  G.lastClick=now;
+
+  if(!hit){ G.sel=null; sync(); return; }
+
+  if(hit.zone==='stock'){
+    snapshot();
+    if(G.stock.length){ const c=G.stock.pop(); c.up=true; G.waste.push(c); snd(400,520,.05,'square',.03); }
+    else { while(G.waste.length){ const c=G.waste.pop(); c.up=false; G.stock.push(c); } snd(260,200,.12,'sine',.03); }
+    G.sel=null; G.moves++; sync(); return;
+  }
+
+  // Double click sends the clicked card to a foundation if it fits.
+  if(dbl){
+    let card=null, from=null;
+    if(hit.zone==='waste'&&G.waste.length){ card=G.waste[G.waste.length-1]; from={zone:'waste'}; }
+    else if(hit.zone==='tab'){
+      const p=G.tab[hit.c];
+      if(p.length&&hit.i===p.length-1&&p[hit.i].up){ card=p[hit.i]; from={zone:'tab',c:hit.c,i:hit.i}; }
+    }
+    if(card&&autoSend(card,from)){ G.sel=null; sync(); return; }
+  }
+
+  if(G.sel){
+    if(tryMoveTo(hit)){ G.sel=null; sync(); return; }
+    G.sel=null;
+  }
+  // Pick up
+  if(hit.zone==='waste'&&G.waste.length) G.sel={zone:'waste'};
+  else if(hit.zone==='found'&&G.found[hit.i].length) G.sel={zone:'found',i:hit.i};
+  else if(hit.zone==='tab'&&!hit.empty&&G.tab[hit.c][hit.i]&&G.tab[hit.c][hit.i].up) G.sel={zone:'tab',c:hit.c,i:hit.i};
+  else G.sel=null;
+  sync();
+});
+
+/* ---- Render ------------------------------------------------------------ */
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
+ ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawCard(c,x,y,sel){
+  if(!c.up){
+    ctx.fillStyle='#1e3a8a'; roundRect(x,y,CW,CH,8); ctx.fill();
+    ctx.strokeStyle='#3b5bd0'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.09)';
+    for(let i=8;i<CW-8;i+=13) for(let j=8;j<CH-8;j+=13) ctx.fillRect(x+i,y+j,6,6);
+    return;
+  }
+  ctx.fillStyle='rgba(0,0,0,.28)'; roundRect(x+2,y+3,CW,CH,8); ctx.fill();
+  ctx.fillStyle='#fdfdfb'; roundRect(x,y,CW,CH,8); ctx.fill();
+  ctx.strokeStyle=sel?'#facc15':'rgba(0,0,0,.3)'; ctx.lineWidth=sel?3.5:1.5; ctx.stroke();
+  const col=RED(c.s)?'#dc2626':'#111827';
+  ctx.fillStyle=col;
+  ctx.font='bold 22px "Segoe UI"'; ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText(RANKS[c.r],x+8,y+7);
+  ctx.font='20px serif'; ctx.fillText(GLYPH[c.s],x+8,y+31);
+  ctx.save(); ctx.translate(x+CW-8,y+CH-7); ctx.rotate(Math.PI);
+  ctx.font='bold 22px "Segoe UI"'; ctx.fillText(RANKS[c.r],0,0);
+  ctx.restore();
+  ctx.font='46px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.globalAlpha=.9; ctx.fillText(GLYPH[c.s],x+CW/2,y+CH/2+4); ctx.globalAlpha=1;
+}
+function drawSlot(x,y,label){
+  ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=2;
+  roundRect(x,y,CW,CH,8); ctx.stroke();
+  if(label){ ctx.fillStyle='rgba(255,255,255,.18)'; ctx.font='34px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(label,x+CW/2,y+CH/2); }
+}
+function draw(){
+  ctx.fillStyle='#14532d'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='rgba(255,255,255,.02)';
+  for(let i=0;i<cv.width;i+=8) ctx.fillRect(i,0,1,cv.height);
+
+  const s=stockXY();
+  if(G.stock.length) drawCard({up:false},s.x,s.y);
+  else drawSlot(s.x,s.y,'↻');
+  const w=wasteXY();
+  if(G.waste.length) drawCard(G.waste[G.waste.length-1],w.x,w.y,G.sel&&G.sel.zone==='waste');
+  else drawSlot(w.x,w.y);
+  for(let i=0;i<4;i++){
+    const f=foundXY(i);
+    if(G.found[i].length) drawCard(G.found[i][G.found[i].length-1],f.x,f.y,G.sel&&G.sel.zone==='found'&&G.sel.i===i);
+    else drawSlot(f.x,f.y,GLYPH[SUITS[i]]);
+  }
+  for(let c=0;c<7;c++){
+    const pile=G.tab[c];
+    if(!pile.length){ const p=tabXY(c,0); drawSlot(p.x,p.y); continue; }
+    for(let i=0;i<pile.length;i++){
+      const p=tabXY(c,i);
+      const sel=G.sel&&G.sel.zone==='tab'&&G.sel.c===c&&i>=G.sel.i;
+      drawCard(pile[i],p.x,p.y,sel);
+    }
+  }
+}
+function fmt(s){s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function sync(){
+  document.getElementById('moves').textContent=G.moves;
+  document.getElementById('time').textContent=fmt(G.t);
+  document.getElementById('won').textContent=wins;
+}
+document.getElementById('newBtn').addEventListener('click',()=>{actx();newDeal();});
+document.getElementById('undoBtn').addEventListener('click',()=>{actx();undo();});
+document.getElementById('autoBtn').addEventListener('click',()=>{actx();autoFinish();});
+document.getElementById('ovBtn').addEventListener('click',()=>{newDeal();});
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+ if(G&&!G.over){G.t+=dt;sync();} draw(); requestAnimationFrame(loop);}
+newDeal(); requestAnimationFrame(loop);
+</script></body></html>

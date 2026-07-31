@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Driftfield - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#94a3b8;letter-spacing:2px}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px}
+canvas{background:#05060f;border-radius:12px;border:2px solid rgba(255,255,255,.08);display:block;max-width:96vw;height:auto;touch-action:none}
+.help{color:#7a7a9a;font-size:.8rem;text-align:center;line-height:1.6}
+kbd{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:1px 6px;font-size:.75rem;font-family:'SF Mono',monospace}
+.overlay{position:fixed;inset:0;background:rgba(4,6,20,.85);display:flex;align-items:center;justify-content:center;z-index:60}
+.overlay.hidden{display:none}
+.obox{background:#161b2e;border:2px solid #94a3b8;border-radius:18px;padding:32px 40px;text-align:center;max-width:420px}
+.obox h2{font-size:1.85rem;margin-bottom:8px;color:#cbd5e1;letter-spacing:2px}
+.obox p{color:#9aa4b8;margin-bottom:18px;line-height:1.6;font-size:.92rem}
+.btn{padding:11px 26px;border:none;border-radius:24px;font-weight:600;cursor:pointer;font-family:inherit;font-size:.95rem;background:linear-gradient(135deg,#cbd5e1,#64748b);color:#0b1020}
+.btn:hover{box-shadow:0 0 20px rgba(203,213,225,.4)}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>DRIFTFIELD</h1></div>
+<div class="wrap">
+  <canvas id="game" width="880" height="620"></canvas>
+  <p class="help"><kbd>&larr;</kbd><kbd>&rarr;</kbd> turn &nbsp;<kbd>&uarr;</kbd> thrust &nbsp;<kbd>Space</kbd> fire &nbsp;<kbd>&darr;</kbd>/<kbd>Shift</kbd> hyperspace<br>
+    Big rocks split into smaller ones. Saucers appear as the levels climb.</p>
+</div>
+<div class="overlay" id="ov"><div class="obox">
+  <h2 id="ovTitle">DRIFTFIELD</h2><p id="ovMsg">Clear the field. Everything you shoot breaks into something faster.</p>
+  <button class="btn" id="ovBtn">Launch</button>
+</div></div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const cv=document.getElementById('game'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+const keys=Object.create(null);
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function snd(f0,f1,d,t,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type=t||'square';o.frequency.setValueAtTime(f0,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(Math.max(25,f1),a.currentTime+d);
+g.gain.setValueAtTime(v||.04,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.02);}
+let best=0; try{best=parseInt(localStorage.getItem('driftfieldBest')||'0',10)||0;}catch(e){}
+let G;
+function reset(){
+  G={ship:{x:W/2,y:H/2,a:-Math.PI/2,vx:0,vy:0,r:12,inv:2.5,cool:0},
+      rocks:[],shots:[],parts:[],saucer:null,saucerT:22,
+      score:0,lives:3,level:0,over:false,started:false,t:0};
+  nextLevel();
+}
+function nextLevel(){
+  G.level++;
+  const n=Math.min(11,3+G.level);
+  for(let i=0;i<n;i++){
+    let x,y;
+    do{ x=Math.random()*W; y=Math.random()*H; }while(Math.hypot(x-G.ship.x,y-G.ship.y)<170);
+    G.rocks.push(mkRock(x,y,3));
+  }
+  G.ship.inv=Math.max(G.ship.inv,1.6);
+}
+function mkRock(x,y,size){
+  const pts=[],n=9+Math.floor(Math.random()*4);
+  for(let i=0;i<n;i++) pts.push(0.62+Math.random()*0.5);
+  const speed=(26+Math.random()*34)*(4-size)*0.55;
+  const a=Math.random()*7;
+  return {x,y,size,r:size*15,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,
+          rot:Math.random()*7,spin:(Math.random()-.5)*1.5,pts};
+}
+function wrap(o){ if(o.x<-30)o.x=W+30; if(o.x>W+30)o.x=-30; if(o.y<-30)o.y=H+30; if(o.y>H+30)o.y=-30; }
+function boom(x,y,n,color){
+  for(let i=0;i<n;i++){const a=Math.random()*7,s=30+Math.random()*180;
+    G.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.4+Math.random()*.4,max:.8,color:color||'#cbd5e1'});}
+}
+window.addEventListener('keydown',e=>{
+  if([' ','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))e.preventDefault();
+  if(!keys[e.key]&&e.key===' ') fire();
+  if(!keys[e.key]&&(e.key==='ArrowDown'||e.key==='Shift')) hyper();
+  keys[e.key]=true;
+});
+window.addEventListener('keyup',e=>keys[e.key]=false);
+window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
+function fire(){
+  if(!G||!G.started||G.over||G.shots.length>=5) return;
+  const s=G.ship;
+  G.shots.push({x:s.x+Math.cos(s.a)*16,y:s.y+Math.sin(s.a)*16,
+    vx:Math.cos(s.a)*430+s.vx,vy:Math.sin(s.a)*430+s.vy,life:1.15});
+  snd(760,300,.07,'square',.03);
+}
+function hyper(){
+  if(!G||!G.started||G.over) return;
+  const s=G.ship;
+  boom(s.x,s.y,10,'#7dd3fc');
+  s.x=Math.random()*W; s.y=Math.random()*H; s.vx=s.vy=0; s.inv=1.1;
+  snd(200,900,.2,'sine',.05);
+}
+function step(dt){
+  if(!G.started||G.over) return;
+  G.t+=dt;
+  const s=G.ship;
+  s.inv=Math.max(0,s.inv-dt); s.cool=Math.max(0,s.cool-dt);
+  if(keys['ArrowLeft']||keys.a) s.a-=3.6*dt;
+  if(keys['ArrowRight']||keys.d) s.a+=3.6*dt;
+  const thrust=keys['ArrowUp']||keys.w;
+  if(thrust){ s.vx+=Math.cos(s.a)*300*dt; s.vy+=Math.sin(s.a)*300*dt;
+    if(Math.random()<0.5) G.parts.push({x:s.x-Math.cos(s.a)*14,y:s.y-Math.sin(s.a)*14,
+      vx:-Math.cos(s.a)*90+(Math.random()-.5)*40,vy:-Math.sin(s.a)*90+(Math.random()-.5)*40,
+      life:.3,max:.3,color:'#fb923c'}); }
+  s.vx*=(1-0.42*dt); s.vy*=(1-0.42*dt);
+  s.x+=s.vx*dt; s.y+=s.vy*dt; wrap(s);
+
+  for(const r of G.rocks){ r.x+=r.vx*dt; r.y+=r.vy*dt; r.rot+=r.spin*dt; wrap(r); }
+  for(const b of G.shots){ b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt; wrap(b); }
+  G.shots=G.shots.filter(b=>b.life>0);
+
+  G.saucerT-=dt;
+  if(!G.saucer&&G.saucerT<=0&&G.level>=2){
+    const fromLeft=Math.random()<.5;
+    G.saucer={x:fromLeft?-30:W+30,y:60+Math.random()*(H-120),vx:(fromLeft?1:-1)*(70+G.level*4),
+      vy:0,r:17,fire:1.6,t:0};
+    snd(300,220,.5,'sawtooth',.04);
+  }
+  if(G.saucer){
+    const u=G.saucer; u.t+=dt;
+    u.x+=u.vx*dt; u.y+=Math.sin(u.t*1.6)*38*dt;
+    u.fire-=dt;
+    if(u.fire<=0){
+      u.fire=Math.max(.6,1.8-G.level*.06);
+      const dx=s.x-u.x,dy=s.y-u.y,d=Math.hypot(dx,dy)||1;
+      const spread=(Math.random()-.5)*0.35;
+      const a=Math.atan2(dy,dx)+spread;
+      G.shots.push({x:u.x,y:u.y,vx:Math.cos(a)*260,vy:Math.sin(a)*260,life:2.2,foe:true});
+      snd(420,260,.1,'sawtooth',.03);
+    }
+    if(u.x<-60||u.x>W+60){ G.saucer=null; G.saucerT=16+Math.random()*10; }
+  }
+
+  // Shots against rocks and the saucer
+  for(const b of G.shots){
+    if(b.foe) continue;
+    for(const r of G.rocks){
+      if(r.dead) continue;
+      if(Math.hypot(b.x-r.x,b.y-r.y)<r.r){
+        b.life=0; r.dead=true;
+        G.score+=[0,100,50,20][r.size];
+        boom(r.x,r.y,12);
+        snd(180,60,.18,'triangle',.05);
+        if(r.size>1) for(let i=0;i<2;i++) G.rocks.push(mkRock(r.x,r.y,r.size-1));
+        break;
+      }
+    }
+    if(G.saucer&&Math.hypot(b.x-G.saucer.x,b.y-G.saucer.y)<G.saucer.r){
+      b.life=0; G.score+=300; boom(G.saucer.x,G.saucer.y,20,'#f472b6');
+      G.saucer=null; G.saucerT=14+Math.random()*10;
+      snd(150,50,.3,'sawtooth',.06);
+    }
+  }
+  G.rocks=G.rocks.filter(r=>!r.dead);
+  G.shots=G.shots.filter(b=>b.life>0);
+
+  // Threats against the ship
+  const hit=()=>{
+    if(s.inv>0) return;
+    G.lives--; boom(s.x,s.y,26,'#fbbf24'); snd(160,50,.5,'sawtooth',.07);
+    s.x=W/2; s.y=H/2; s.vx=s.vy=0; s.a=-Math.PI/2; s.inv=2.4;
+    if(G.lives<=0) end();
+  };
+  for(const r of G.rocks) if(Math.hypot(s.x-r.x,s.y-r.y)<r.r+s.r) { hit(); break; }
+  for(const b of G.shots) if(b.foe&&Math.hypot(s.x-b.x,s.y-b.y)<s.r+3){ b.life=0; hit(); break; }
+  if(G.saucer&&Math.hypot(s.x-G.saucer.x,s.y-G.saucer.y)<s.r+G.saucer.r) hit();
+
+  for(const p of G.parts){ p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=.96; p.vy*=.96; p.life-=dt; }
+  G.parts=G.parts.filter(p=>p.life>0);
+
+  if(!G.rocks.length&&!G.saucer) nextLevel();
+}
+function end(){
+  G.over=true;
+  if(G.score>best){best=G.score;try{localStorage.setItem('driftfieldBest',String(best));}catch(e){}}
+  document.getElementById('ovTitle').textContent='DRIFTED OFF';
+  document.getElementById('ovMsg').innerHTML='Score <b>'+G.score.toLocaleString()+'</b> &middot; level <b>'+G.level+
+    '</b><br>Best <b>'+best.toLocaleString()+'</b>';
+  document.getElementById('ovBtn').textContent='Again';
+  document.getElementById('ov').classList.remove('hidden');
+}
+function draw(){
+  ctx.fillStyle='#05060f'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1.8;
+  for(const r of G.rocks){
+    ctx.save(); ctx.translate(r.x,r.y); ctx.rotate(r.rot);
+    ctx.beginPath();
+    r.pts.forEach((m,i)=>{const a=i/r.pts.length*Math.PI*2;
+      const px=Math.cos(a)*r.r*m, py=Math.sin(a)*r.r*m; i?ctx.lineTo(px,py):ctx.moveTo(px,py);});
+    ctx.closePath(); ctx.stroke(); ctx.restore();
+  }
+  if(G.saucer){
+    const u=G.saucer;
+    ctx.strokeStyle='#f472b6'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.ellipse(u.x,u.y,u.r,u.r*0.42,0,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(u.x,u.y-6,u.r*0.5,u.r*0.36,0,Math.PI,0); ctx.stroke();
+  }
+  for(const b of G.shots){
+    ctx.fillStyle=b.foe?'#f472b6':'#a5f3fc';
+    ctx.beginPath(); ctx.arc(b.x,b.y,b.foe?3.4:2.4,0,7); ctx.fill();
+  }
+  for(const p of G.parts){
+    ctx.globalAlpha=Math.max(0,p.life/p.max); ctx.fillStyle=p.color;
+    ctx.fillRect(p.x-1.5,p.y-1.5,3,3); ctx.globalAlpha=1;
+  }
+  const s=G.ship;
+  if(!G.over&&(s.inv<=0||Math.floor(s.inv*12)%2===0)){
+    ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.a);
+    ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(16,0); ctx.lineTo(-11,9); ctx.lineTo(-6,0); ctx.lineTo(-11,-9);
+    ctx.closePath(); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.fillStyle='#fff'; ctx.font='bold 20px "Segoe UI"'; ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText(G.score.toLocaleString(),16,14);
+  ctx.font='11px "Segoe UI"'; ctx.fillStyle='#7a7a9a'; ctx.fillText('BEST '+best.toLocaleString(),16,38);
+  ctx.textAlign='right'; ctx.font='bold 15px "Segoe UI"'; ctx.fillStyle='#fff';
+  ctx.fillText('LEVEL '+G.level,W-16,14);
+  for(let i=0;i<G.lives;i++){
+    ctx.save(); ctx.translate(W-24-i*22,52); ctx.rotate(-Math.PI/2);
+    ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.moveTo(9,0); ctx.lineTo(-6,5); ctx.lineTo(-3,0); ctx.lineTo(-6,-5);
+    ctx.closePath(); ctx.stroke(); ctx.restore();
+  }
+}
+document.getElementById('ovBtn').addEventListener('click',()=>{
+  actx(); reset(); G.started=true; document.getElementById('ov').classList.add('hidden');
+});
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;step(dt);draw();requestAnimationFrame(loop);}
+reset(); requestAnimationFrame(loop);
+</script></body></html>

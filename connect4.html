@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Four In A Row - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#facc15;letter-spacing:2px}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+.chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:7px 16px;font-size:.85rem}
+.chip b{color:#facc15}
+.seg{display:flex;gap:5px}
+.seg button{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#bbb;border-radius:18px;padding:7px 15px;cursor:pointer;font-family:inherit;font-size:.82rem}
+.seg button.on{background:rgba(250,204,21,.2);border-color:#facc15;color:#fde68a}
+.btn{padding:8px 18px;border:none;border-radius:20px;font-weight:600;cursor:pointer;font-family:inherit;font-size:.85rem;background:linear-gradient(135deg,#facc15,#ca8a04);color:#2a1f00}
+canvas{background:#1e3a8a;border-radius:14px;border:2px solid rgba(255,255,255,.08);display:block;max-width:95vw;height:auto;cursor:pointer;touch-action:none}
+.status{font-size:1rem;font-weight:600;min-height:26px}
+.overlay{position:fixed;inset:0;background:rgba(4,6,20,.85);display:flex;align-items:center;justify-content:center;z-index:60}
+.overlay.hidden{display:none}
+.obox{background:#2a2410;border:2px solid #facc15;border-radius:18px;padding:32px 40px;text-align:center;max-width:380px}
+.obox h2{font-size:1.8rem;margin-bottom:8px;color:#facc15;letter-spacing:2px}
+.obox p{color:#ddd0a0;margin-bottom:18px;line-height:1.6;font-size:.92rem}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>FOUR IN A ROW</h1></div>
+<div class="wrap">
+  <div class="bar">
+    <div class="seg" id="diff"></div>
+    <div class="chip">You <b id="wins">0</b></div>
+    <div class="chip">Computer <b id="losses">0</b></div>
+    <button class="btn" id="newBtn">New Game</button>
+  </div>
+  <div class="status" id="status">Your move &mdash; drop a red disc.</div>
+  <canvas id="game" width="700" height="620"></canvas>
+</div>
+<div class="overlay hidden" id="ov"><div class="obox">
+  <h2 id="ovTitle">You Win</h2><p id="ovMsg"></p>
+  <button class="btn" id="ovBtn">Play Again</button>
+</div></div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const COLS=7,ROWS=6,CELL=92,PADX=28,PADY=64;
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function snd(f0,f1,d,t,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type=t||'sine';o.frequency.setValueAtTime(f0,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+d);
+g.gain.setValueAtTime(v||.04,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.02);}
+let stats={w:0,l:0}; try{stats=Object.assign(stats,JSON.parse(localStorage.getItem('c4Stats')||'{}'));}catch(e){}
+const LEVELS={easy:{d:2,label:'Easy'},normal:{d:4,label:'Normal'},hard:{d:6,label:'Hard'}};
+let level='normal', B, turn, over, winLine, hover=-1, dropping=null;
+
+function reset(){
+  B=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  turn=1; over=false; winLine=null; dropping=null;
+  document.getElementById('ov').classList.add('hidden');
+  setStatus('Your move &mdash; drop a red disc.');
+  sync();
+}
+function setStatus(h){ document.getElementById('status').innerHTML=h; }
+function drop(board,c,p){
+  for(let r=ROWS-1;r>=0;r--) if(!board[r][c]){ board[r][c]=p; return r; }
+  return -1;
+}
+function undrop(board,c){ for(let r=0;r<ROWS;r++) if(board[r][c]){ board[r][c]=0; return; } }
+function winnerAt(board){
+  const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const p=board[r][c]; if(!p) continue;
+    for(const [dc,dr] of dirs){
+      const cells=[[r,c]];
+      for(let k=1;k<4;k++){
+        const rr=r+dr*k, cc=c+dc*k;
+        if(rr<0||rr>=ROWS||cc<0||cc>=COLS||board[rr][cc]!==p) break;
+        cells.push([rr,cc]);
+      }
+      if(cells.length===4) return {p,cells};
+    }
+  }
+  return null;
+}
+function full(board){ return board[0].every(v=>v); }
+function score(board,p){
+  // Count open runs of two and three for both sides.
+  const opp=p===1?2:1;
+  let s=0;
+  const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+    for(const [dc,dr] of dirs){
+      const rr=r+dr*3, cc=c+dc*3;
+      if(rr<0||rr>=ROWS||cc<0||cc>=COLS) continue;
+      let mine=0,theirs=0;
+      for(let k=0;k<4;k++){ const v=board[r+dr*k][c+dc*k]; if(v===p)mine++; else if(v===opp)theirs++; }
+      if(mine&&theirs) continue;
+      if(mine===3) s+=60; else if(mine===2) s+=12; else if(mine===1) s+=1;
+      if(theirs===3) s-=80; else if(theirs===2) s-=14; else if(theirs===1) s-=1;
+    }
+  for(let r=0;r<ROWS;r++) if(board[r][3]===p) s+=4; else if(board[r][3]===opp) s-=4;
+  return s;
+}
+function minimax(board,depth,alpha,beta,maximizing,me){
+  const w=winnerAt(board);
+  if(w) return w.p===me ? 100000-(6-depth) : -100000+(6-depth);
+  if(full(board)||depth===0) return score(board,me);
+  const order=[3,2,4,1,5,0,6].filter(c=>!board[0][c]);
+  if(maximizing){
+    let bestV=-Infinity;
+    for(const c of order){
+      drop(board,c,me);
+      bestV=Math.max(bestV,minimax(board,depth-1,alpha,beta,false,me));
+      undrop(board,c);
+      alpha=Math.max(alpha,bestV); if(beta<=alpha) break;
+    }
+    return bestV;
+  } else {
+    const opp=me===1?2:1;
+    let bestV=Infinity;
+    for(const c of order){
+      drop(board,c,opp);
+      bestV=Math.min(bestV,minimax(board,depth-1,alpha,beta,true,me));
+      undrop(board,c);
+      beta=Math.min(beta,bestV); if(beta<=alpha) break;
+    }
+    return bestV;
+  }
+}
+function aiMove(){
+  const depth=LEVELS[level].d;
+  const cols=[3,2,4,1,5,0,6].filter(c=>!B[0][c]);
+  if(!cols.length) return -1;
+  let bestC=cols[0],bestV=-Infinity;
+  for(const c of cols){
+    drop(B,c,2);
+    const v=minimax(B,depth-1,-Infinity,Infinity,false,2)+Math.random()*0.6;
+    undrop(B,c);
+    if(v>bestV){bestV=v;bestC=c;}
+  }
+  return bestC;
+}
+function place(c,p,after){
+  const r=drop(B,c,p);
+  if(r<0) return false;
+  dropping={c,r,y:-CELL,p,vy:0,after};
+  snd(p===1?420:320,220,.1,'sine',.035);
+  return true;
+}
+function settle(){
+  const w=winnerAt(B);
+  if(w){
+    over=true; winLine=w.cells;
+    if(w.p===1){ stats.w++; setStatus('You win.'); }
+    else { stats.l++; setStatus('Computer wins.'); }
+    try{localStorage.setItem('c4Stats',JSON.stringify(stats));}catch(e){}
+    document.getElementById('ovTitle').textContent=w.p===1?'YOU WIN':'COMPUTER WINS';
+    document.getElementById('ovTitle').style.color=w.p===1?'#4ade80':'#f87171';
+    document.getElementById('ovMsg').textContent=w.p===1
+      ?'Four in a row. Try a harder setting.':'It saw the line before you did.';
+    document.getElementById('ov').classList.remove('hidden');
+    for(let i=0;i<4;i++) setTimeout(()=>snd(w.p===1?600+i*140:400-i*60,w.p===1?900:200,.18,'sine',.05),i*110);
+    sync(); return;
+  }
+  if(full(B)){
+    over=true; setStatus('A draw.');
+    document.getElementById('ovTitle').textContent='DRAW';
+    document.getElementById('ovTitle').style.color='#facc15';
+    document.getElementById('ovMsg').textContent='Board full, nobody connected four.';
+    document.getElementById('ov').classList.remove('hidden');
+    return;
+  }
+  turn=turn===1?2:1;
+  if(turn===2){
+    setStatus('Computer thinking&hellip;');
+    setTimeout(()=>{ const c=aiMove(); if(c>=0) place(c,2,settle); },230);
+  } else setStatus('Your move &mdash; drop a red disc.');
+}
+cv.addEventListener('mousemove',e=>{
+  const r=cv.getBoundingClientRect(),s=cv.width/r.width;
+  hover=Math.floor(((e.clientX-r.left)*s-PADX)/CELL);
+  if(hover<0||hover>=COLS) hover=-1;
+});
+cv.addEventListener('mouseleave',()=>hover=-1);
+cv.addEventListener('click',e=>{
+  if(over||turn!==1||dropping) return;
+  actx();
+  const r=cv.getBoundingClientRect(),s=cv.width/r.width;
+  const c=Math.floor(((e.clientX-r.left)*s-PADX)/CELL);
+  if(c<0||c>=COLS||B[0][c]) return;
+  place(c,1,settle);
+});
+function cellXY(r,c){ return {x:PADX+c*CELL+CELL/2, y:PADY+r*CELL+CELL/2}; }
+function draw(){
+  ctx.fillStyle='#1e3a8a'; ctx.fillRect(0,0,cv.width,cv.height);
+  if(hover>=0&&!over&&turn===1&&!dropping){
+    ctx.fillStyle='rgba(255,255,255,.07)';
+    ctx.fillRect(PADX+hover*CELL,PADY,CELL,ROWS*CELL);
+    ctx.fillStyle='#ef4444';
+    ctx.beginPath(); ctx.arc(PADX+hover*CELL+CELL/2,PADY-30,CELL*0.34,0,7); ctx.fill();
+  }
+  ctx.fillStyle='#1d4ed8';
+  ctx.fillRect(PADX-10,PADY-10,COLS*CELL+20,ROWS*CELL+20);
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const p=cellXY(r,c);
+    const v=B[r][c];
+    const isDropping=dropping&&dropping.r===r&&dropping.c===c;
+    ctx.fillStyle=(v&&!isDropping)?(v===1?'#ef4444':'#facc15'):'#0f2260';
+    ctx.beginPath(); ctx.arc(p.x,p.y,CELL*0.38,0,7); ctx.fill();
+    if(v&&!isDropping){
+      ctx.fillStyle='rgba(255,255,255,.22)';
+      ctx.beginPath(); ctx.arc(p.x-CELL*.11,p.y-CELL*.12,CELL*0.13,0,7); ctx.fill();
+    }
+  }
+  if(dropping){
+    const p=cellXY(dropping.r,dropping.c);
+    ctx.fillStyle=dropping.p===1?'#ef4444':'#facc15';
+    ctx.beginPath(); ctx.arc(p.x,PADY+dropping.y+CELL/2,CELL*0.38,0,7); ctx.fill();
+  }
+  if(winLine){
+    ctx.strokeStyle='#fff'; ctx.lineWidth=5; ctx.lineCap='round';
+    const a=cellXY(winLine[0][0],winLine[0][1]), b=cellXY(winLine[3][0],winLine[3][1]);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  }
+}
+function step(dt){
+  if(!dropping) return;
+  dropping.vy+=2600*dt;
+  dropping.y+=dropping.vy*dt;
+  const target=dropping.r*CELL;
+  if(dropping.y>=target){
+    const cb=dropping.after; dropping=null;
+    snd(180,120,.09,'triangle',.04);
+    if(cb) cb();
+  }
+}
+function sync(){
+  document.getElementById('wins').textContent=stats.w;
+  document.getElementById('losses').textContent=stats.l;
+}
+function buildDiff(){
+  const h=document.getElementById('diff'); h.innerHTML='';
+  for(const k of Object.keys(LEVELS)){
+    const b=document.createElement('button');
+    b.textContent=LEVELS[k].label; b.className=k===level?'on':'';
+    b.addEventListener('click',()=>{level=k;buildDiff();reset();});
+    h.appendChild(b);
+  }
+}
+document.getElementById('newBtn').addEventListener('click',()=>{actx();reset();});
+document.getElementById('ovBtn').addEventListener('click',()=>reset());
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;step(dt);draw();requestAnimationFrame(loop);}
+buildDiff(); reset(); requestAnimationFrame(loop);
+</script></body></html>

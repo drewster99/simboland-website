@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sequence - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#e879f9;letter-spacing:2px}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:16px;gap:14px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:7px 16px;font-size:.85rem}
+.chip b{color:#e879f9;font-size:1.05rem}
+canvas{background:#140f22;border-radius:50%;border:2px solid rgba(255,255,255,.08);display:block;max-width:92vw;height:auto;cursor:pointer;touch-action:none}
+.status{font-size:1.05rem;font-weight:600;min-height:28px;color:#e879f9}
+.help{color:#7a7a9a;font-size:.8rem;text-align:center;line-height:1.6}
+.overlay{position:fixed;inset:0;background:rgba(4,6,20,.85);display:flex;align-items:center;justify-content:center;z-index:60}
+.overlay.hidden{display:none}
+.obox{background:#251230;border:2px solid #e879f9;border-radius:18px;padding:32px 40px;text-align:center;max-width:380px}
+.obox h2{font-size:1.8rem;margin-bottom:8px;color:#e879f9;letter-spacing:2px}
+.obox p{color:#d9b8e0;margin-bottom:18px;line-height:1.6;font-size:.92rem}
+.btn{padding:11px 26px;border:none;border-radius:24px;font-weight:600;cursor:pointer;font-family:inherit;font-size:.95rem;background:linear-gradient(135deg,#e879f9,#a21caf);color:#fff}
+.btn:hover{box-shadow:0 0 20px rgba(232,121,249,.5)}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>SEQUENCE</h1></div>
+<div class="wrap">
+  <div class="bar">
+    <div class="chip">Round <b id="round">0</b></div>
+    <div class="chip">Best <b id="best">0</b></div>
+  </div>
+  <div class="status" id="status">Press start and watch.</div>
+  <canvas id="game" width="420" height="420"></canvas>
+  <p class="help">Watch the pattern, then repeat it. It grows by one every round and speeds up as you go.</p>
+</div>
+<div class="overlay" id="ov"><div class="obox">
+  <h2 id="ovTitle">SEQUENCE</h2><p id="ovMsg">Four pads, one growing pattern. How far can you hold it in your head?</p>
+  <button class="btn" id="ovBtn">Start</button>
+</div></div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const CX=cv.width/2, CY=cv.height/2, R=200, IR=72;
+const PADS=[
+ {c:'#22d3ee',lit:'#a5f3fc',f:329.6,a0:Math.PI,     a1:Math.PI*1.5},
+ {c:'#f472b6',lit:'#fbcfe8',f:415.3,a0:Math.PI*1.5, a1:Math.PI*2},
+ {c:'#a3e635',lit:'#d9f99d',f:493.9,a0:0,           a1:Math.PI*0.5},
+ {c:'#facc15',lit:'#fef08a',f:261.6,a0:Math.PI*0.5, a1:Math.PI},
+];
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function tone(f,d,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type='sine';o.frequency.setValueAtTime(f,a.currentTime);
+g.gain.setValueAtTime(0,a.currentTime);g.gain.linearRampToValueAtTime(v||.07,a.currentTime+.02);
+g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.03);}
+function buzz(){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type='sawtooth';o.frequency.setValueAtTime(160,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(60,a.currentTime+.55);
+g.gain.setValueAtTime(.07,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.55);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+.6);}
+
+let best=0; try{best=parseInt(localStorage.getItem('sequenceBest')||'0',10)||0;}catch(e){}
+let seq=[],step=0,lit=-1,playing=false,accepting=false,over=false,started=false,round=0,timers=[];
+
+function clearTimers(){ for(const t of timers) clearTimeout(t); timers=[]; }
+function reset(){
+  clearTimers();
+  seq=[];step=0;lit=-1;playing=false;accepting=false;over=false;round=0;
+  document.getElementById('ov').classList.add('hidden');
+  sync(); nextRound();
+}
+function nextRound(){
+  round++;
+  seq.push(Math.floor(Math.random()*4));
+  step=0; accepting=false; playing=true;
+  setStatus('Watch&hellip;');
+  sync();
+  const gap=Math.max(230,620-seq.length*22);
+  seq.forEach((p,i)=>{
+    timers.push(setTimeout(()=>{
+      lit=p; tone(PADS[p].f,.34,.07);
+      timers.push(setTimeout(()=>{lit=-1;},gap*0.55));
+    }, 520+i*gap));
+  });
+  timers.push(setTimeout(()=>{
+    playing=false; accepting=true; setStatus('Your turn.');
+  }, 520+seq.length*gap+120));
+}
+function setStatus(t){ document.getElementById('status').innerHTML=t; }
+function padAt(mx,my){
+  const dx=mx-CX, dy=my-CY, d=Math.hypot(dx,dy);
+  if(d<IR||d>R) return -1;
+  let a=Math.atan2(dy,dx); if(a<0) a+=Math.PI*2;
+  for(let i=0;i<4;i++) if(a>=PADS[i].a0&&a<PADS[i].a1) return i;
+  return -1;
+}
+cv.addEventListener('mousedown',e=>{
+  if(!started||!accepting||over) return;
+  actx();
+  const r=cv.getBoundingClientRect(), s=cv.width/r.width;
+  const p=padAt((e.clientX-r.left)*s,(e.clientY-r.top)*s);
+  if(p<0) return;
+  lit=p; tone(PADS[p].f,.28,.07);
+  setTimeout(()=>{if(lit===p)lit=-1;},170);
+  if(seq[step]===p){
+    step++;
+    if(step>=seq.length){
+      accepting=false;
+      if(round>best){best=round;try{localStorage.setItem('sequenceBest',String(best));}catch(e){}}
+      setStatus('Good.'); sync();
+      timers.push(setTimeout(nextRound,760));
+    }
+  } else fail();
+});
+function fail(){
+  over=true; accepting=false; buzz();
+  setStatus('Wrong pad.');
+  document.getElementById('ovTitle').textContent='BROKEN CHAIN';
+  document.getElementById('ovTitle').style.color='#f87171';
+  document.getElementById('ovMsg').innerHTML='You held <b>'+(round-1)+'</b> '+((round-1)===1?'step':'steps')+
+    '.<br>Best <b>'+best+'</b>';
+  document.getElementById('ovBtn').textContent='Again';
+  document.getElementById('ov').classList.remove('hidden');
+  sync();
+}
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#140f22'; ctx.beginPath(); ctx.arc(CX,CY,R,0,7); ctx.fill();
+  for(let i=0;i<4;i++){
+    const p=PADS[i];
+    ctx.beginPath();
+    ctx.arc(CX,CY,R-6,p.a0+0.03,p.a1-0.03);
+    ctx.arc(CX,CY,IR+6,p.a1-0.03,p.a0+0.03,true);
+    ctx.closePath();
+    ctx.fillStyle = lit===i ? p.lit : p.c;
+    ctx.globalAlpha = lit===i ? 1 : 0.55;
+    ctx.fill();
+    ctx.globalAlpha=1;
+    if(lit===i){ ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke(); }
+  }
+  ctx.fillStyle='#140f22'; ctx.beginPath(); ctx.arc(CX,CY,IR,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=2; ctx.stroke();
+  ctx.fillStyle='#e879f9'; ctx.font='bold 40px "Segoe UI"'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(String(round),CX,CY-4);
+  ctx.fillStyle='#7a7a9a'; ctx.font='10px "Segoe UI"'; ctx.fillText('ROUND',CX,CY+22);
+}
+function sync(){
+  document.getElementById('round').textContent=round;
+  document.getElementById('best').textContent=best;
+}
+document.getElementById('ovBtn').addEventListener('click',()=>{
+  actx(); started=true; reset();
+});
+(function loop(){ draw(); requestAnimationFrame(loop); })();
+sync();
+</script></body></html>

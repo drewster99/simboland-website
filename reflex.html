@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reflex - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#fb7185;letter-spacing:2px}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:7px 16px;font-size:.85rem;font-variant-numeric:tabular-nums}
+.chip b{color:#fb7185}
+.seg{display:flex;gap:5px}
+.seg button{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#bbb;border-radius:18px;padding:7px 15px;cursor:pointer;font-family:inherit;font-size:.82rem}
+.seg button.on{background:rgba(251,113,133,.2);border-color:#fb7185;color:#fecdd3}
+canvas{background:#12101f;border-radius:12px;border:2px solid rgba(255,255,255,.08);display:block;max-width:96vw;height:auto;cursor:crosshair;touch-action:none}
+.help{color:#7a7a9a;font-size:.8rem;text-align:center;line-height:1.6}
+.overlay{position:fixed;inset:0;background:rgba(4,6,20,.85);display:flex;align-items:center;justify-content:center;z-index:60}
+.overlay.hidden{display:none}
+.obox{background:#2a1220;border:2px solid #fb7185;border-radius:18px;padding:32px 40px;text-align:center;max-width:400px}
+.obox h2{font-size:1.8rem;margin-bottom:8px;color:#fb7185;letter-spacing:2px}
+.obox p{color:#e5b4bd;margin-bottom:18px;line-height:1.6;font-size:.92rem}
+.btn{padding:11px 26px;border:none;border-radius:24px;font-weight:600;cursor:pointer;font-family:inherit;font-size:.95rem;background:linear-gradient(135deg,#fb7185,#be123c);color:#fff}
+.btn:hover{box-shadow:0 0 20px rgba(251,113,133,.5)}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>REFLEX</h1></div>
+<div class="wrap">
+  <div class="bar">
+    <div class="seg" id="mode"></div>
+    <div class="chip">Score <b id="score">0</b></div>
+    <div class="chip">Hits <b id="hits">0</b></div>
+    <div class="chip">Accuracy <b id="acc">100%</b></div>
+    <div class="chip">Avg <b id="avg">—</b></div>
+    <div class="chip">Best <b id="best">0</b></div>
+  </div>
+  <canvas id="game" width="820" height="520"></canvas>
+  <p class="help">Sixty seconds. Click the circles before they shrink away. Red decoys cost you &mdash; leave them alone.</p>
+</div>
+<div class="overlay" id="ov"><div class="obox">
+  <h2 id="ovTitle">REFLEX</h2><p id="ovMsg">A one-minute test of how fast you actually are. Missing costs accuracy; hitting a decoy costs points.</p>
+  <button class="btn" id="ovBtn">Start</button>
+</div></div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const cv=document.getElementById('game'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+const MODES={calm:{label:'Calm',life:1.6,rate:0.85,decoy:0.10,r:40},
+             brisk:{label:'Brisk',life:1.1,rate:0.55,decoy:0.16,r:32},
+             frantic:{label:'Frantic',life:0.78,rate:0.34,decoy:0.22,r:25}};
+let mode='brisk';
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function snd(f0,f1,d,t,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type=t||'sine';o.frequency.setValueAtTime(f0,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+d);
+g.gain.setValueAtTime(v||.04,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.02);}
+function bestKey(){return 'reflexBest_'+mode;}
+function loadBest(){try{return parseInt(localStorage.getItem(bestKey())||'0',10)||0;}catch(e){return 0;}}
+let S;
+function reset(){
+  S={targets:[],score:0,hits:0,shots:0,left:60,over:false,started:false,spawn:0,times:[],pops:[],combo:0};
+  document.getElementById('ov').classList.add('hidden'); sync();
+}
+function spawn(){
+  const M=MODES[mode];
+  const decoy=Math.random()<M.decoy;
+  const r=M.r*(0.8+Math.random()*0.5);
+  S.targets.push({x:r+16+Math.random()*(W-2*r-32), y:r+16+Math.random()*(H-2*r-32),
+    r, life:M.life, max:M.life, decoy, born:performance.now()});
+}
+cv.addEventListener('mousedown',e=>{
+  if(!S.started||S.over) return;
+  actx();
+  const r=cv.getBoundingClientRect(), s=cv.width/r.width;
+  const mx=(e.clientX-r.left)*s, my=(e.clientY-r.top)*s;
+  S.shots++;
+  for(let i=S.targets.length-1;i>=0;i--){
+    const t=S.targets[i];
+    const rad=t.r*(0.35+0.65*(t.life/t.max));
+    if(Math.hypot(mx-t.x,my-t.y)<=rad){
+      S.targets.splice(i,1);
+      if(t.decoy){
+        S.score=Math.max(0,S.score-150); S.combo=0;
+        S.pops.push({x:t.x,y:t.y,life:.35,max:.35,color:'#ef4444',text:'-150'});
+        snd(220,90,.22,'sawtooth',.05);
+      } else {
+        const ms=performance.now()-t.born;
+        S.times.push(ms);
+        S.hits++; S.combo++;
+        const speedBonus=Math.max(0,Math.round((t.max*1000-ms)/8));
+        const gain=100+speedBonus+Math.min(200,S.combo*10);
+        S.score+=gain;
+        S.pops.push({x:t.x,y:t.y,life:.4,max:.4,color:'#4ade80',text:'+'+gain});
+        snd(660+Math.min(600,S.combo*24),1100,.07,'sine',.04);
+      }
+      sync(); return;
+    }
+  }
+  S.combo=0;
+  S.pops.push({x:mx,y:my,life:.25,max:.25,color:'#94a3b8',text:'miss'});
+  snd(200,150,.08,'square',.02);
+  sync();
+});
+function step(dt){
+  if(!S.started||S.over) return;
+  S.left-=dt;
+  if(S.left<=0){ S.left=0; end(); return; }
+  S.spawn-=dt;
+  if(S.spawn<=0){ S.spawn=MODES[mode].rate*(0.7+Math.random()*0.6); spawn(); }
+  for(const t of S.targets) t.life-=dt;
+  const before=S.targets.length;
+  S.targets=S.targets.filter(t=>{
+    if(t.life>0) return true;
+    if(!t.decoy) S.combo=0;
+    return false;
+  });
+  if(S.targets.length!==before) sync();
+  for(const p of S.pops) p.life-=dt;
+  S.pops=S.pops.filter(p=>p.life>0);
+}
+function end(){
+  S.over=true;
+  const b=loadBest();
+  if(S.score>b) try{localStorage.setItem(bestKey(),String(S.score));}catch(e){}
+  const avg=S.times.length?Math.round(S.times.reduce((a,c)=>a+c,0)/S.times.length):0;
+  document.getElementById('ovTitle').textContent='TIME';
+  document.getElementById('ovMsg').innerHTML='Score <b>'+S.score.toLocaleString()+'</b> &middot; '+
+    S.hits+' hits &middot; '+(S.shots?Math.round(S.hits/S.shots*100):100)+'% accuracy'+
+    (avg?'<br>Average reaction <b>'+avg+' ms</b>':'')+
+    '<br>Best on '+MODES[mode].label.toLowerCase()+': <b>'+Math.max(b,S.score).toLocaleString()+'</b>';
+  document.getElementById('ovBtn').textContent='Go Again';
+  document.getElementById('ov').classList.remove('hidden');
+  snd(500,900,.3,'sine',.06); sync();
+}
+function draw(){
+  ctx.fillStyle='#12101f'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,.03)'; ctx.lineWidth=1;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  for(const t of S.targets){
+    const k=t.life/t.max;
+    const r=t.r*(0.35+0.65*k);
+    ctx.globalAlpha=Math.min(1,k*2.2);
+    ctx.fillStyle=t.decoy?'rgba(239,68,68,.22)':'rgba(52,211,153,.20)';
+    ctx.beginPath(); ctx.arc(t.x,t.y,r,0,7); ctx.fill();
+    ctx.strokeStyle=t.decoy?'#ef4444':'#34d399'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(t.x,t.y,r,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(t.x,t.y,r*0.42,0,7); ctx.stroke();
+    if(t.decoy){
+      ctx.strokeStyle='#ef4444'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(t.x-r*.3,t.y-r*.3); ctx.lineTo(t.x+r*.3,t.y+r*.3);
+      ctx.moveTo(t.x+r*.3,t.y-r*.3); ctx.lineTo(t.x-r*.3,t.y+r*.3); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+  for(const p of S.pops){
+    ctx.globalAlpha=Math.max(0,p.life/p.max);
+    ctx.fillStyle=p.color; ctx.font='bold 15px "Segoe UI"'; ctx.textAlign='center';
+    ctx.fillText(p.text,p.x,p.y-18-(1-p.life/p.max)*18);
+    ctx.globalAlpha=1;
+  }
+  // Timer bar
+  ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(0,0,W,7);
+  ctx.fillStyle=S.left<10?'#ef4444':'#fb7185'; ctx.fillRect(0,0,W*(S.left/60),7);
+  ctx.fillStyle='#fff'; ctx.font='bold 15px "Segoe UI"'; ctx.textAlign='right'; ctx.textBaseline='top';
+  ctx.fillText(Math.ceil(S.left)+'s',W-12,16);
+  if(S.combo>2){ ctx.fillStyle='#facc15'; ctx.textAlign='left'; ctx.fillText(S.combo+'x streak',12,16); }
+}
+function sync(){
+  document.getElementById('score').textContent=S.score.toLocaleString();
+  document.getElementById('hits').textContent=S.hits;
+  document.getElementById('acc').textContent=(S.shots?Math.round(S.hits/S.shots*100):100)+'%';
+  const avg=S.times.length?Math.round(S.times.reduce((a,c)=>a+c,0)/S.times.length):0;
+  document.getElementById('avg').textContent=avg?avg+' ms':'—';
+  document.getElementById('best').textContent=loadBest().toLocaleString();
+}
+function buildModes(){
+  const h=document.getElementById('mode'); h.innerHTML='';
+  for(const k of Object.keys(MODES)){
+    const b=document.createElement('button');
+    b.textContent=MODES[k].label; b.className=k===mode?'on':'';
+    b.addEventListener('click',()=>{mode=k;buildModes();reset();});
+    h.appendChild(b);
+  }
+}
+document.getElementById('ovBtn').addEventListener('click',()=>{
+  actx(); reset(); S.started=true; document.getElementById('ov').classList.add('hidden');
+});
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;step(dt);draw();requestAnimationFrame(loop);}
+buildModes(); reset(); requestAnimationFrame(loop);
+</script></body></html>
