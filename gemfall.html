@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gemfall - Simboland</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a2e; color:#fff; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+    min-height:100vh; user-select:none; -webkit-user-select:none; }
+.header { width:100%; padding:12px 24px; display:flex; align-items:center; gap:20px;
+    background:rgba(0,0,0,0.35); border-bottom:1px solid rgba(255,255,255,0.07); flex-wrap:wrap; }
+.header a { color:#ffe066; text-decoration:none; font-size:0.85rem; }
+.header a:hover { color:#fff; }
+.header h1 { font-size:1.25rem; color:#2dd4bf; letter-spacing:2px; }
+.wrap { display:flex; gap:18px; justify-content:center; padding:18px; flex-wrap:wrap; align-items:flex-start; }
+canvas { background:#0d1226; border-radius:14px; border:2px solid rgba(255,255,255,0.09);
+    display:block; max-width:94vw; height:auto; cursor:pointer; touch-action:none; }
+.side { width:210px; display:flex; flex-direction:column; gap:12px; }
+.box { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09);
+    border-radius:12px; padding:13px 15px; }
+.box h3 { font-size:0.66rem; letter-spacing:2px; color:#7a7a9a; text-transform:uppercase; margin-bottom:6px; }
+.box .v { font-size:1.6rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.bar { height:8px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden; margin-top:8px; }
+.bar i { display:block; height:100%; background:linear-gradient(90deg,#2dd4bf,#0ea5e9); border-radius:4px; transition:width .25s; }
+.help { color:#7a7a9a; font-size:0.79rem; line-height:1.65; }
+.overlay { position:fixed; inset:0; background:rgba(4,6,20,0.85); display:flex; align-items:center;
+    justify-content:center; z-index:60; }
+.overlay.hidden { display:none; }
+.obox { background:#0f2033; border:2px solid #2dd4bf; border-radius:18px; padding:34px 42px; text-align:center; max-width:420px; }
+.obox h2 { font-size:1.9rem; margin-bottom:8px; color:#2dd4bf; letter-spacing:2px; }
+.obox p { color:#9fc0cc; margin-bottom:20px; line-height:1.65; font-size:0.92rem; }
+.btn { padding:11px 26px; border:none; border-radius:24px; font-weight:600; cursor:pointer;
+    font-family:inherit; font-size:0.95rem; background:linear-gradient(135deg,#2dd4bf,#0d9488); color:#04211d; }
+.btn:hover { box-shadow:0 0 20px rgba(45,212,191,0.5); }
+footer { text-align:center; padding:20px; color:rgba(255,255,255,0.22); font-size:0.8rem; }
+</style>
+</head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>GEMFALL</h1></div>
+<div class="wrap">
+    <canvas id="game" width="576" height="576"></canvas>
+    <div class="side">
+        <div class="box"><h3>Score</h3><div class="v" id="score">0</div></div>
+        <div class="box"><h3>Moves left</h3><div class="v" id="moves" style="color:#facc15">30</div></div>
+        <div class="box"><h3>Level <span id="lvlNum">1</span> target</h3>
+            <div class="v" id="target" style="font-size:1.05rem">0 / 1,000</div>
+            <div class="bar"><i id="prog" style="width:0%"></i></div></div>
+        <div class="box"><h3>Best</h3><div class="v" id="best" style="color:#ffe066">0</div></div>
+        <div class="box help">
+            Swap two touching gems to line up three or more.<br><br>
+            <b style="color:#fff">Match 4</b> makes a <b style="color:#facc15">striker</b> that clears a whole line.<br>
+            <b style="color:#fff">Match 5</b> makes a <b style="color:#f472b6">nova</b> that wipes everything of one colour.<br><br>
+            Cascades multiply your score.
+        </div>
+    </div>
+</div>
+<div class="overlay" id="ov">
+    <div class="obox">
+        <h2 id="ovTitle">GEMFALL</h2>
+        <p id="ovMsg">Hit the target score before the moves run out. Clear it and the next level starts, harder.</p>
+        <button class="btn" id="ovBtn">Play</button>
+    </div>
+</div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+
+<script>
+const N=8, CELL=72;
+const cv=document.getElementById('game'), ctx=cv.getContext('2d');
+const COLORS=['#f87171','#60a5fa','#4ade80','#facc15','#c084fc','#2dd4bf'];
+const SHAPES=['circle','diamond','square','hex','triangle','star'];
+
+let ac=null;
+function actx(){ if(!ac){const C=window.AudioContext||window.webkitAudioContext; if(C)ac=new C();} return ac; }
+function snd(f0,f1,dur,type,vol){
+    const a=actx(); if(!a) return;
+    const o=a.createOscillator(), g=a.createGain();
+    o.type=type||'sine'; o.frequency.setValueAtTime(f0,a.currentTime);
+    o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+dur);
+    g.gain.setValueAtTime(vol||0.05,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
+    o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+dur+0.02);
+}
+const BEST_KEY='gemfallBest';
+let best=0; try{ best=parseInt(localStorage.getItem(BEST_KEY)||'0',10)||0; }catch(e){}
+
+let S, generation=0;
+function levelNeed(level){ return 1200+(level-1)*900; }
+function reset(full){
+    generation++;
+    const carried = full?0:S.score;
+    S={ grid:[], sel:null, busy:false, score:carried, level:full?1:S.level+1,
+        moves:30, over:false, started:false, combo:0, pops:[], gen:generation,
+        levelStart:carried };
+    S.need = levelNeed(S.level);
+    S.target = S.levelStart + S.need;
+    buildGrid();
+    sync();
+}
+function buildGrid(){
+    do {
+        S.grid=[];
+        for(let y=0;y<N;y++){ const row=[];
+            for(let x=0;x<N;x++) row.push({c:Math.floor(Math.random()*COLORS.length),special:null,y:y,off:0});
+            S.grid.push(row); }
+    } while(findMatches().length||!hasMove());
+}
+function at(x,y){ return (x>=0&&y>=0&&x<N&&y<N)?S.grid[y][x]:null; }
+
+function findMatches(){
+    const runs=[];
+    for(let y=0;y<N;y++){
+        let run=1;
+        for(let x=1;x<=N;x++){
+            const same = x<N && S.grid[y][x] && S.grid[y][x-1] && S.grid[y][x].c===S.grid[y][x-1].c;
+            if(same) run++;
+            else { if(run>=3) runs.push({cells:Array.from({length:run},(_,i)=>[x-1-i,y]),dir:'h'}); run=1; }
+        }
+    }
+    for(let x=0;x<N;x++){
+        let run=1;
+        for(let y=1;y<=N;y++){
+            const same = y<N && S.grid[y][x] && S.grid[y-1][x] && S.grid[y][x].c===S.grid[y-1][x].c;
+            if(same) run++;
+            else { if(run>=3) runs.push({cells:Array.from({length:run},(_,i)=>[x,y-1-i]),dir:'v'}); run=1; }
+        }
+    }
+    return runs;
+}
+function hasMove(){
+    for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+        for(const [dx,dy] of [[1,0],[0,1]]){
+            if(x+dx>=N||y+dy>=N) continue;
+            swapCells(x,y,x+dx,y+dy);
+            const ok=findMatches().length>0;
+            swapCells(x,y,x+dx,y+dy);
+            if(ok) return true;
+        }
+    }
+    return false;
+}
+function swapCells(x1,y1,x2,y2){
+    const t=S.grid[y1][x1]; S.grid[y1][x1]=S.grid[y2][x2]; S.grid[y2][x2]=t;
+}
+
+function resolve(myGen){
+    // A cascade resolves over several timers. If the board was reset in the
+    // meantime this run belongs to a game that no longer exists.
+    if(myGen!==undefined && myGen!==S.gen) return;
+    const runs=findMatches();
+    if(!runs.length){
+        S.busy=false; S.combo=0;
+        if(!hasMove()) buildGrid();
+        checkEnd();
+        return;
+    }
+    S.combo++;
+    const kill=new Set();
+    const makeSpecial=[];
+    for(const r of runs){
+        for(const [x,y] of r.cells) kill.add(x+','+y);
+        if(r.cells.length===4) makeSpecial.push({x:r.cells[0][0],y:r.cells[0][1],type:r.dir==='h'?'row':'col',c:S.grid[r.cells[0][1]][r.cells[0][0]].c});
+        if(r.cells.length>=5) makeSpecial.push({x:r.cells[0][0],y:r.cells[0][1],type:'nova',c:S.grid[r.cells[0][1]][r.cells[0][0]].c});
+    }
+    // Trigger any specials caught in the blast.
+    let added=true;
+    while(added){
+        added=false;
+        for(const k of Array.from(kill)){
+            const [x,y]=k.split(',').map(Number);
+            const cell=at(x,y);
+            if(!cell||!cell.special||cell.triggered) continue;
+            cell.triggered=true; added=true;
+            if(cell.special==='row') for(let i=0;i<N;i++) kill.add(i+','+y);
+            else if(cell.special==='col') for(let i=0;i<N;i++) kill.add(x+','+i);
+            else if(cell.special==='nova')
+                for(let yy=0;yy<N;yy++) for(let xx=0;xx<N;xx++)
+                    if(S.grid[yy][xx]&&S.grid[yy][xx].c===cell.c) kill.add(xx+','+yy);
+        }
+    }
+    const gained=kill.size*30*S.combo;
+    S.score+=gained;
+    snd(420+S.combo*90, 700+S.combo*140, 0.14,'sine',0.05);
+    for(const k of kill){
+        const [x,y]=k.split(',').map(Number);
+        const cell=at(x,y);
+        if(cell) S.pops.push({x,y,color:COLORS[cell.c],life:0.32,max:0.32});
+        S.grid[y][x]=null;
+    }
+    for(const sp of makeSpecial){
+        if(!S.grid[sp.y][sp.x]) S.grid[sp.y][sp.x]={c:sp.c,special:sp.type==='nova'?'nova':(sp.type==='row'?'row':'col'),off:0};
+    }
+    collapse();
+    setTimeout(()=>resolve(S.gen),200);
+    sync();
+}
+function collapse(){
+    for(let x=0;x<N;x++){
+        let write=N-1;
+        for(let y=N-1;y>=0;y--){
+            if(S.grid[y][x]){
+                const cell=S.grid[y][x];
+                S.grid[y][x]=null;
+                cell.off=(write-y)*CELL;
+                S.grid[write][x]=cell;
+                write--;
+            }
+        }
+        for(let y=write;y>=0;y--){
+            S.grid[y][x]={c:Math.floor(Math.random()*COLORS.length),special:null,off:(write-y+1)*CELL+CELL};
+        }
+    }
+}
+
+function checkEnd(){
+    if(S.over) return;
+    if(S.score>=S.target){
+        if(S.score>best){ best=S.score; try{localStorage.setItem(BEST_KEY,String(best));}catch(e){} }
+        S.over=true;
+        document.getElementById('ovTitle').textContent='LEVEL '+S.level+' CLEAR';
+        document.getElementById('ovTitle').style.color='#4ade80';
+        document.getElementById('ovMsg').innerHTML='Score <b>'+S.score.toLocaleString()+'</b><br>'+
+            'Level '+(S.level+1)+' needs another <b>'+levelNeed(S.level+1).toLocaleString()+'</b>.';
+        document.getElementById('ovBtn').textContent='Level '+(S.level+1);
+        document.getElementById('ov').classList.remove('hidden');
+        snd(600,1400,0.35,'sine',0.07);
+    } else if(S.moves<=0){
+        if(S.score>best){ best=S.score; try{localStorage.setItem(BEST_KEY,String(best));}catch(e){} }
+        S.over=true;
+        document.getElementById('ovTitle').textContent='OUT OF MOVES';
+        document.getElementById('ovTitle').style.color='#f87171';
+        document.getElementById('ovMsg').innerHTML='You made <b>'+(S.score-S.levelStart).toLocaleString()+
+            '</b> of the <b>'+S.need.toLocaleString()+'</b> needed on level '+S.level+
+            '.<br>Total <b>'+S.score.toLocaleString()+'</b> &middot; best <b>'+best.toLocaleString()+'</b>';
+        document.getElementById('ovBtn').textContent='Start Over';
+        document.getElementById('ov').classList.remove('hidden');
+        snd(300,80,0.5,'sawtooth',0.06);
+    }
+}
+
+cv.addEventListener('click',e=>{
+    if(!S.started||S.busy||S.over) return;
+    const r=cv.getBoundingClientRect(), s=cv.width/r.width;
+    const x=Math.floor((e.clientX-r.left)*s/CELL), y=Math.floor((e.clientY-r.top)*s/CELL);
+    if(x<0||y<0||x>=N||y>=N) return;
+    if(!S.sel){ S.sel={x,y}; snd(500,600,0.05,'sine',0.03); return; }
+    const dx=Math.abs(x-S.sel.x), dy=Math.abs(y-S.sel.y);
+    if(dx+dy!==1){ S.sel={x,y}; return; }
+    trySwap(S.sel.x,S.sel.y,x,y);
+    S.sel=null;
+});
+function trySwap(x1,y1,x2,y2){
+    swapCells(x1,y1,x2,y2);
+    if(findMatches().length){
+        S.moves--; S.busy=true;
+        snd(700,900,0.07,'sine',0.04);
+        sync();
+        setTimeout(()=>resolve(S.gen),90);
+    } else {
+        swapCells(x1,y1,x2,y2);
+        snd(200,140,0.12,'sawtooth',0.035);
+    }
+}
+
+function step(dt){
+    for(const row of S.grid) for(const c of row) if(c&&c.off>0) c.off=Math.max(0,c.off-1500*dt);
+    for(const p of S.pops) p.life-=dt;
+    S.pops=S.pops.filter(p=>p.life>0);
+}
+
+function gemPath(g,shape,cx,cy,r){
+    g.beginPath();
+    if(shape==='circle'){ g.arc(cx,cy,r,0,7); }
+    else if(shape==='diamond'){ g.moveTo(cx,cy-r); g.lineTo(cx+r,cy); g.lineTo(cx,cy+r); g.lineTo(cx-r,cy); g.closePath(); }
+    else if(shape==='square'){ const s=r*0.86; g.rect(cx-s,cy-s,s*2,s*2); }
+    else if(shape==='hex'){ for(let i=0;i<6;i++){ const a=Math.PI/6+i*Math.PI/3;
+        const px=cx+Math.cos(a)*r, py=cy+Math.sin(a)*r; i?g.lineTo(px,py):g.moveTo(px,py); } g.closePath(); }
+    else if(shape==='triangle'){ g.moveTo(cx,cy-r); g.lineTo(cx+r*0.92,cy+r*0.7); g.lineTo(cx-r*0.92,cy+r*0.7); g.closePath(); }
+    else { for(let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5, rr=i%2?r*0.46:r;
+        const px=cx+Math.cos(a)*rr, py=cy+Math.sin(a)*rr; i?g.lineTo(px,py):g.moveTo(px,py); } g.closePath(); }
+}
+
+function draw(){
+    ctx.fillStyle='#0d1226'; ctx.fillRect(0,0,cv.width,cv.height);
+    for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+        ctx.fillStyle=(x+y)%2?'rgba(255,255,255,0.022)':'rgba(255,255,255,0.045)';
+        ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
+    }
+    for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+        const c=S.grid[y][x]; if(!c) continue;
+        const cx=x*CELL+CELL/2, cy=y*CELL+CELL/2-c.off;
+        const r=CELL*0.34;
+        ctx.save();
+        ctx.fillStyle='rgba(0,0,0,0.35)';
+        gemPath(ctx,SHAPES[c.c],cx+2,cy+3,r); ctx.fill();
+        const g=ctx.createLinearGradient(cx,cy-r,cx,cy+r);
+        g.addColorStop(0,'#ffffff'); g.addColorStop(0.22,COLORS[c.c]); g.addColorStop(1,shade(COLORS[c.c]));
+        ctx.fillStyle=g;
+        gemPath(ctx,SHAPES[c.c],cx,cy,r); ctx.fill();
+        ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=1.5; ctx.stroke();
+        if(c.special){
+            ctx.strokeStyle=c.special==='nova'?'#f472b6':'#facc15';
+            ctx.lineWidth=3;
+            gemPath(ctx,SHAPES[c.c],cx,cy,r*1.32); ctx.stroke();
+            if(c.special==='row'||c.special==='col'){
+                ctx.strokeStyle='#facc15'; ctx.lineWidth=2.5; ctx.beginPath();
+                if(c.special==='row'){ ctx.moveTo(cx-r*1.5,cy); ctx.lineTo(cx+r*1.5,cy); }
+                else { ctx.moveTo(cx,cy-r*1.5); ctx.lineTo(cx,cy+r*1.5); }
+                ctx.stroke();
+            }
+        }
+        ctx.restore();
+    }
+    if(S.sel){
+        ctx.strokeStyle='#fff'; ctx.lineWidth=3;
+        ctx.strokeRect(S.sel.x*CELL+3,S.sel.y*CELL+3,CELL-6,CELL-6);
+    }
+    for(const p of S.pops){
+        const k=p.life/p.max;
+        ctx.globalAlpha=k; ctx.fillStyle=p.color;
+        ctx.beginPath(); ctx.arc(p.x*CELL+CELL/2,p.y*CELL+CELL/2,CELL*0.5*(1-k)+6,0,7); ctx.fill();
+        ctx.globalAlpha=1;
+    }
+}
+function shade(hex){
+    const n=parseInt(hex.slice(1),16);
+    const r=Math.round(((n>>16)&255)*0.45), g=Math.round(((n>>8)&255)*0.45), b=Math.round((n&255)*0.45);
+    return 'rgb('+r+','+g+','+b+')';
+}
+
+function sync(){
+    document.getElementById('score').textContent=S.score.toLocaleString();
+    document.getElementById('moves').textContent=Math.max(0,S.moves);
+    document.getElementById('lvlNum').textContent=S.level;
+    const made=Math.max(0,S.score-S.levelStart);
+    document.getElementById('target').textContent=made.toLocaleString()+' / '+S.need.toLocaleString();
+    document.getElementById('prog').style.width=Math.min(100,made/S.need*100)+'%';
+    document.getElementById('best').textContent=best.toLocaleString();
+}
+
+document.getElementById('ovBtn').addEventListener('click',()=>{
+    actx();
+    const cleared = S && S.over && S.score>=S.target;
+    if(!S||!cleared) { S={score:0,level:0}; reset(true); }
+    else reset(false);
+    S.started=true;
+    document.getElementById('ov').classList.add('hidden');
+});
+
+let last=performance.now();
+function loop(now){
+    const dt=Math.min(0.05,(now-last)/1000); last=now;
+    step(dt); draw();
+    requestAnimationFrame(loop);
+}
+S={score:0,level:0}; reset(true);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

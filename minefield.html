@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minefield - Simboland</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a2e; color:#fff; font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+    min-height:100vh; user-select:none; -webkit-user-select:none; }
+.header { width:100%; padding:12px 24px; display:flex; align-items:center; gap:20px;
+    background:rgba(0,0,0,0.35); border-bottom:1px solid rgba(255,255,255,0.07); flex-wrap:wrap; }
+.header a { color:#ffe066; text-decoration:none; font-size:0.85rem; }
+.header a:hover { color:#fff; }
+.header h1 { font-size:1.25rem; color:#fb923c; letter-spacing:2px; }
+.wrap { display:flex; flex-direction:column; align-items:center; padding:18px; gap:14px; }
+.bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center; }
+.chip { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+    border-radius:20px; padding:8px 16px; font-variant-numeric:tabular-nums; font-size:0.95rem; }
+.chip b { color:#fb923c; }
+.diff { display:flex; gap:6px; }
+.diff button { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#bbb;
+    border-radius:18px; padding:7px 15px; cursor:pointer; font-family:inherit; font-size:0.83rem; }
+.diff button:hover { background:rgba(255,255,255,0.1); color:#fff; }
+.diff button.on { background:rgba(251,146,60,0.2); border-color:#fb923c; color:#fdba74; }
+canvas { background:#141a2e; border-radius:12px; border:2px solid rgba(255,255,255,0.09);
+    display:block; max-width:96vw; height:auto; cursor:pointer; touch-action:none; }
+.help { color:#7a7a9a; font-size:0.8rem; text-align:center; line-height:1.6; max-width:620px; }
+.overlay { position:fixed; inset:0; background:rgba(4,6,20,0.85); display:flex; align-items:center;
+    justify-content:center; z-index:60; }
+.overlay.hidden { display:none; }
+.obox { background:#221a12; border:2px solid #fb923c; border-radius:18px; padding:32px 40px; text-align:center; max-width:400px; }
+.obox h2 { font-size:1.85rem; margin-bottom:8px; color:#fb923c; letter-spacing:2px; }
+.obox p { color:#d2bda8; margin-bottom:18px; line-height:1.6; font-size:0.92rem; }
+.btn { padding:11px 26px; border:none; border-radius:24px; font-weight:600; cursor:pointer;
+    font-family:inherit; font-size:0.95rem; background:linear-gradient(135deg,#fb923c,#ea580c); color:#fff; }
+.btn:hover { box-shadow:0 0 20px rgba(251,146,60,0.5); }
+footer { text-align:center; padding:20px; color:rgba(255,255,255,0.22); font-size:0.8rem; }
+</style>
+</head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>MINEFIELD</h1></div>
+<div class="wrap">
+    <div class="bar">
+        <div class="diff" id="diff"></div>
+        <div class="chip">Mines left <b id="left">0</b></div>
+        <div class="chip">Time <b id="time">0:00</b></div>
+        <div class="chip">Best <b id="best">—</b></div>
+    </div>
+    <canvas id="game" width="640" height="480"></canvas>
+    <p class="help">
+        Left click to uncover, right click to flag. Click a number that already has all its flags
+        to open everything around it &mdash; that is how you clear a board quickly.
+        The first click is always safe.
+    </p>
+</div>
+<div class="overlay" id="ov">
+    <div class="obox">
+        <h2 id="ovTitle">MINEFIELD</h2>
+        <p id="ovMsg">Uncover every square that is not a mine. The numbers tell you how many mines touch that square.</p>
+        <button class="btn" id="ovBtn">Play</button>
+    </div>
+</div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+
+<script>
+const cv=document.getElementById('game'), ctx=cv.getContext('2d');
+const LEVELS={
+    easy:  {cols:10,rows:8, mines:10, cell:48, label:'Easy'},
+    medium:{cols:16,rows:12,mines:32, cell:36, label:'Medium'},
+    hard:  {cols:24,rows:16,mines:80, cell:28, label:'Hard'},
+};
+const NUM_COLOR=['','#60a5fa','#4ade80','#f87171','#c084fc','#fb923c','#2dd4bf','#e879f9','#94a3b8'];
+
+let ac=null;
+function actx(){ if(!ac){const C=window.AudioContext||window.webkitAudioContext; if(C)ac=new C();} return ac; }
+function snd(f0,f1,dur,type,vol){
+    const a=actx(); if(!a) return;
+    const o=a.createOscillator(), g=a.createGain();
+    o.type=type||'square'; o.frequency.setValueAtTime(f0,a.currentTime);
+    o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+dur);
+    g.gain.setValueAtTime(vol||0.04,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
+    o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+dur+0.02);
+}
+
+let level='easy', S;
+function bestKey(){ return 'minefieldBest_'+level; }
+function loadBest(){ try{ const v=localStorage.getItem(bestKey()); return v?parseInt(v,10):null; }catch(e){ return null; } }
+
+function reset(){
+    const L=LEVELS[level];
+    cv.width=L.cols*L.cell; cv.height=L.rows*L.cell;
+    S={ L, grid:[], started:false, over:false, won:false, t:0, flags:0, opened:0, boom:null };
+    for(let y=0;y<L.rows;y++){
+        const row=[];
+        for(let x=0;x<L.cols;x++) row.push({mine:false,open:false,flag:false,n:0});
+        S.grid.push(row);
+    }
+    document.getElementById('ov').classList.add('hidden');
+    sync(); draw();
+}
+function place(sx,sy){
+    const L=S.L;
+    const safe=new Set();
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++) safe.add((sx+dx)+','+(sy+dy));
+    let placed=0;
+    while(placed<L.mines){
+        const x=Math.floor(Math.random()*L.cols), y=Math.floor(Math.random()*L.rows);
+        if(S.grid[y][x].mine||safe.has(x+','+y)) continue;
+        S.grid[y][x].mine=true; placed++;
+    }
+    for(let y=0;y<L.rows;y++) for(let x=0;x<L.cols;x++){
+        let n=0;
+        for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+            const c=cell(x+dx,y+dy); if(c&&c.mine) n++;
+        }
+        S.grid[y][x].n=S.grid[y][x].mine?-1:n;
+    }
+    S.started=true;
+}
+function cell(x,y){ return (x>=0&&y>=0&&x<S.L.cols&&y<S.L.rows)?S.grid[y][x]:null; }
+
+function open(x,y){
+    const c=cell(x,y);
+    if(!c||c.open||c.flag) return;
+    c.open=true; S.opened++;
+    if(c.mine){ S.boom={x,y}; lose(); return; }
+    if(c.n===0){
+        for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++)
+            if(dx||dy) open(x+dx,y+dy);
+    }
+}
+function chord(x,y){
+    const c=cell(x,y);
+    if(!c||!c.open||c.n<=0) return;
+    let flags=0;
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+        const n=cell(x+dx,y+dy); if(n&&n.flag) flags++;
+    }
+    if(flags!==c.n) return;
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+        const n=cell(x+dx,y+dy);
+        if(n&&!n.flag&&!n.open) open(x+dx,y+dy);
+    }
+}
+function checkWin(){
+    const L=S.L;
+    if(S.opened===L.cols*L.rows-L.mines&&!S.over){
+        S.over=true; S.won=true;
+        const secs=Math.floor(S.t);
+        const b=loadBest();
+        if(b===null||secs<b){ try{ localStorage.setItem(bestKey(),String(secs)); }catch(e){} }
+        for(const row of S.grid) for(const c of row) if(c.mine) c.flag=true;
+        snd(700,1500,0.4,'sine',0.07);
+        document.getElementById('ovTitle').textContent='FIELD CLEARED';
+        document.getElementById('ovTitle').style.color='#4ade80';
+        document.getElementById('ovMsg').innerHTML='Cleared '+LEVELS[level].label.toLowerCase()+
+            ' in <b>'+fmt(secs)+'</b>'+((b!==null&&secs<b)?'<br>A new best.':(b!==null?'<br>Best '+fmt(b):''));
+        document.getElementById('ovBtn').textContent='Play Again';
+        document.getElementById('ov').classList.remove('hidden');
+        sync();
+    }
+}
+function lose(){
+    S.over=true;
+    for(const row of S.grid) for(const c of row) if(c.mine) c.open=true;
+    snd(220,50,0.55,'sawtooth',0.07);
+    document.getElementById('ovTitle').textContent='BOOM';
+    document.getElementById('ovTitle').style.color='#f87171';
+    document.getElementById('ovMsg').innerHTML='You lasted <b>'+fmt(Math.floor(S.t))+'</b>. '+
+        'The safe move is usually next to a number you have already satisfied.';
+    document.getElementById('ovBtn').textContent='Try Again';
+    document.getElementById('ov').classList.remove('hidden');
+}
+function fmt(s){ return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+
+function pos(e){
+    const r=cv.getBoundingClientRect(), s=cv.width/r.width;
+    return { x:Math.floor((e.clientX-r.left)*s/S.L.cell), y:Math.floor((e.clientY-r.top)*s/S.L.cell) };
+}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('mousedown',e=>{
+    if(S.over) return;
+    actx();
+    const {x,y}=pos(e);
+    if(x<0||y<0||x>=S.L.cols||y>=S.L.rows) return;
+    if(e.button===2){
+        const c=cell(x,y);
+        if(c&&!c.open){ c.flag=!c.flag; S.flags+=c.flag?1:-1; snd(c.flag?620:380,c.flag?760:300,0.06,'square',0.03); }
+        sync(); draw(); return;
+    }
+    if(e.button!==0) return;
+    if(!S.started) place(x,y);
+    const c=cell(x,y);
+    if(c.open) chord(x,y);
+    else { open(x,y); snd(500,620,0.05,'sine',0.025); }
+    checkWin(); sync(); draw();
+});
+
+function draw(){
+    const L=S.L, C=L.cell;
+    ctx.fillStyle='#141a2e'; ctx.fillRect(0,0,cv.width,cv.height);
+    for(let y=0;y<L.rows;y++) for(let x=0;x<L.cols;x++){
+        const c=S.grid[y][x], px=x*C, py=y*C;
+        if(!c.open){
+            ctx.fillStyle=(x+y)%2?'#2b3350':'#313a5c';
+            ctx.fillRect(px+1,py+1,C-2,C-2);
+            ctx.fillStyle='rgba(255,255,255,0.09)';
+            ctx.fillRect(px+1,py+1,C-2,Math.max(2,C*0.12));
+            if(c.flag){
+                ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=Math.max(1.5,C*0.05);
+                ctx.beginPath(); ctx.moveTo(px+C*0.38,py+C*0.24); ctx.lineTo(px+C*0.38,py+C*0.76); ctx.stroke();
+                ctx.fillStyle='#f87171';
+                ctx.beginPath(); ctx.moveTo(px+C*0.38,py+C*0.24); ctx.lineTo(px+C*0.72,py+C*0.38);
+                ctx.lineTo(px+C*0.38,py+C*0.52); ctx.closePath(); ctx.fill();
+            }
+        } else {
+            ctx.fillStyle=(x+y)%2?'#1b2138':'#1f253f';
+            ctx.fillRect(px+1,py+1,C-2,C-2);
+            if(c.mine){
+                if(S.boom&&S.boom.x===x&&S.boom.y===y){ ctx.fillStyle='rgba(248,113,113,0.55)'; ctx.fillRect(px+1,py+1,C-2,C-2); }
+                ctx.fillStyle='#0b0e18';
+                ctx.beginPath(); ctx.arc(px+C/2,py+C/2,C*0.24,0,7); ctx.fill();
+                ctx.strokeStyle='#f87171'; ctx.lineWidth=Math.max(1.4,C*0.055);
+                for(let i=0;i<4;i++){
+                    const a=i*Math.PI/4;
+                    ctx.beginPath();
+                    ctx.moveTo(px+C/2-Math.cos(a)*C*0.34,py+C/2-Math.sin(a)*C*0.34);
+                    ctx.lineTo(px+C/2+Math.cos(a)*C*0.34,py+C/2+Math.sin(a)*C*0.34);
+                    ctx.stroke();
+                }
+                ctx.fillStyle='#f87171';
+                ctx.beginPath(); ctx.arc(px+C/2,py+C/2,C*0.2,0,7); ctx.fill();
+                ctx.fillStyle='rgba(255,255,255,0.6)';
+                ctx.beginPath(); ctx.arc(px+C*0.42,py+C*0.42,C*0.06,0,7); ctx.fill();
+            } else if(c.n>0){
+                ctx.fillStyle=NUM_COLOR[c.n];
+                ctx.font='bold '+Math.round(C*0.52)+'px "Segoe UI"';
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillText(String(c.n),px+C/2,py+C/2+1);
+            }
+        }
+    }
+    ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let x=0;x<=L.cols;x++){ ctx.moveTo(x*C,0); ctx.lineTo(x*C,cv.height); }
+    for(let y=0;y<=L.rows;y++){ ctx.moveTo(0,y*C); ctx.lineTo(cv.width,y*C); }
+    ctx.stroke();
+}
+
+function sync(){
+    document.getElementById('left').textContent=Math.max(0,S.L.mines-S.flags);
+    document.getElementById('time').textContent=fmt(Math.floor(S.t));
+    const b=loadBest();
+    document.getElementById('best').textContent=b===null?'—':fmt(b);
+}
+function buildDiff(){
+    const host=document.getElementById('diff'); host.innerHTML='';
+    for(const k of Object.keys(LEVELS)){
+        const b=document.createElement('button');
+        b.textContent=LEVELS[k].label; b.className=k===level?'on':'';
+        b.addEventListener('click',()=>{ level=k; buildDiff(); reset(); });
+        host.appendChild(b);
+    }
+}
+document.getElementById('ovBtn').addEventListener('click',()=>{ actx(); reset(); });
+
+let last=performance.now();
+function loop(now){
+    const dt=Math.min(0.05,(now-last)/1000); last=now;
+    if(S&&S.started&&!S.over){ S.t+=dt; sync(); }
+    requestAnimationFrame(loop);
+}
+buildDiff(); reset(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -472,110 +472,143 @@
         /* Games Section */
         .games-section {
             background: linear-gradient(180deg, #1d4b1d 0%, #0a0a2e 15%);
-            padding: 80px 20px;
+            padding: 70px 20px 90px;
             min-height: 100vh;
         }
 
         .games-section h2 {
             text-align: center;
             font-size: 2.5rem;
-            margin-bottom: 60px;
+            margin-bottom: 8px;
             color: #ffe066;
             text-shadow: 0 0 20px rgba(255, 224, 102, 0.3);
             letter-spacing: 3px;
         }
 
+        .games-sub {
+            text-align: center;
+            color: #8a8aaa;
+            font-size: 0.95rem;
+            margin-bottom: 28px;
+        }
+        .games-sub b { color: #fff; }
+
+        .filters {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 36px;
+        }
+        .filters button {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #9a9aba;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filters button:hover { color: #fff; background: rgba(255,255,255,0.1); }
+        .filters button.on {
+            background: linear-gradient(135deg, #ffe066, #ffb347);
+            border-color: transparent;
+            color: #2a1f00;
+            font-weight: 600;
+        }
+
         .games-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 40px;
-            max-width: 760px;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 22px;
+            max-width: 1180px;
             margin: 0 auto;
         }
 
         .game-card {
-            background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+            background: linear-gradient(160deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02));
             border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 20px;
-            padding: 40px 30px;
-            text-align: center;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-radius: 18px;
+            padding: 0;
+            text-align: left;
+            transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
             cursor: pointer;
             text-decoration: none;
             color: inherit;
-            display: block;
-            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
         }
-
         .game-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-6px);
+            box-shadow: 0 18px 44px rgba(0,0,0,0.5);
+            border-color: rgba(255,255,255,0.24);
         }
 
-        .game-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            display: block;
+        .card-art {
+            height: 118px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3.1rem;
+            position: relative;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .card-art::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 120%, rgba(255,255,255,0.16), transparent 65%);
         }
 
-        .game-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 12px;
-            color: #fff;
+        .card-body { padding: 16px 18px 18px; display: flex; flex-direction: column; flex: 1; }
+
+        .tag {
+            align-self: flex-start;
+            font-size: 0.62rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 8px;
+            margin-bottom: 9px;
         }
 
+        .game-card h3 { font-size: 1.18rem; margin-bottom: 6px; color: #fff; }
         .game-card p {
-            color: rgba(255,255,255,0.6);
-            font-size: 0.95rem;
-            line-height: 1.5;
+            color: rgba(255,255,255,0.55);
+            font-size: 0.85rem;
+            line-height: 1.55;
+            flex: 1;
+            margin-bottom: 14px;
         }
 
         .game-card .play-btn {
             display: inline-block;
-            margin-top: 20px;
-            padding: 10px 30px;
-            border-radius: 25px;
+            align-self: flex-start;
+            padding: 9px 24px;
+            border-radius: 22px;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.86rem;
+            letter-spacing: 0.5px;
+            color: #fff;
+            transition: all 0.25s ease;
+        }
+
+        .badge-new {
+            position: absolute;
+            top: 10px; right: 10px;
+            background: #ffe066;
+            color: #2a1f00;
+            font-size: 0.6rem;
+            font-weight: 800;
             letter-spacing: 1px;
-            transition: all 0.3s ease;
-        }
-
-        .snake-card .play-btn {
-            background: linear-gradient(135deg, #2ecc71, #27ae60);
-            color: #fff;
-        }
-
-        .snake-card:hover .play-btn {
-            box-shadow: 0 0 25px rgba(46, 204, 113, 0.5);
-        }
-
-        .breaker-card .play-btn {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            color: #fff;
-        }
-
-        .breaker-card:hover .play-btn {
-            box-shadow: 0 0 25px rgba(231, 76, 60, 0.5);
-        }
-
-        .pool-card .play-btn {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: #fff;
-        }
-
-        .pool-card:hover .play-btn {
-            box-shadow: 0 0 25px rgba(52, 152, 219, 0.5);
-        }
-
-        .rcempire-card .play-btn {
-            background: linear-gradient(135deg, #ff8c42, #e8622a);
-            color: #fff;
-        }
-
-        .rcempire-card:hover .play-btn {
-            box-shadow: 0 0 25px rgba(255, 140, 66, 0.5);
+            padding: 3px 8px;
+            border-radius: 7px;
+            z-index: 2;
         }
 
         /* Footer */
@@ -674,33 +707,10 @@
 
 <!-- Games Section -->
 <section class="games-section" id="games">
-    <h2>CHOOSE YOUR GAME</h2>
-    <div class="games-grid">
-        <a href="snake.html" class="game-card snake-card">
-            <span class="game-icon">&#127910;</span>
-            <h3>Snake</h3>
-            <p>Guide the snake to eat food and grow longer. Don't hit the walls or yourself!</p>
-            <span class="play-btn">PLAY NOW</span>
-        </a>
-        <a href="breaker.html" class="game-card breaker-card">
-            <span class="game-icon">&#129521;</span>
-            <h3>Brick Breaker</h3>
-            <p>Smash all the bricks with your ball and paddle. How many levels can you clear?</p>
-            <span class="play-btn">PLAY NOW</span>
-        </a>
-        <a href="pool.html" class="game-card pool-card">
-            <span class="game-icon">&#127921;</span>
-            <h3>8-Ball Pool</h3>
-            <p>Line up your shots and sink all your balls before your opponent does!</p>
-            <span class="play-btn">PLAY NOW</span>
-        </a>
-        <a href="rcempire.html" class="game-card rcempire-card">
-            <span class="game-icon">&#127950;</span>
-            <h3>RC Empire</h3>
-            <p>Race, drift and bet your way from a stock brushed basher to a carbon-fibre monster &mdash; and learn how real RC cars actually work.</p>
-            <span class="play-btn">PLAY NOW</span>
-        </a>
-    </div>
+    <h2>THE ARCADE</h2>
+    <p class="games-sub">Every game here is <b>original</b>, <b>free</b>, and runs instantly in your browser. No downloads, no accounts.</p>
+    <div class="filters" id="filters"></div>
+    <div class="games-grid" id="grid"></div>
 </section>
 
 <footer>
@@ -733,6 +743,88 @@
         tree.innerHTML = '<div class="tree-top"></div><div class="tree-trunk"></div>';
         treesContainer.appendChild(tree);
     });
+
+
+    // ---- Game catalogue -------------------------------------------------
+    const GAMES = [
+        { file:'rcempire.html', name:'RC Empire', icon:'\u{1F3CE}\uFE0F', tag:'Racing', cat:'racing',
+          color:'#ff8c42', dark:'#e8622a', fresh:true,
+          desc:'Race, drift and bet your way from a stock basher to a carbon-fibre monster \u2014 and learn how real RC cars work.' },
+        { file:'towers.html', name:'Iron Line', icon:'\u{1F5FC}', tag:'Strategy', cat:'strategy',
+          color:'#22d3ee', dark:'#0891b2', fresh:true,
+          desc:'Twenty-four waves, four tower types and one winding road. Hold the line or watch it break.' },
+        { file:'starfall.html', name:'Starfall', icon:'\u{1F680}', tag:'Action', cat:'action',
+          color:'#a78bfa', dark:'#7c3aed', fresh:true,
+          desc:'Arcade space shooter with spread cannons, smart bombs and a capital ship every fifth wave.' },
+        { file:'cascade.html', name:'Cascade', icon:'\u{1F9CA}', tag:'Puzzle', cat:'puzzle',
+          color:'#f472b6', dark:'#be185d', fresh:true,
+          desc:'Stack the falling blocks, clear the rows, survive the speed. Hold piece, ghost drop and hard drop included.' },
+        { file:'gemfall.html', name:'Gemfall', icon:'\u{1F48E}', tag:'Puzzle', cat:'puzzle',
+          color:'#2dd4bf', dark:'#0d9488', fresh:true,
+          desc:'Swap gems, chain cascades, build strikers and novas. Beat the target before the moves run out.' },
+        { file:'minefield.html', name:'Minefield', icon:'\u{1F4A3}', tag:'Puzzle', cat:'puzzle',
+          color:'#fb923c', dark:'#ea580c', fresh:true,
+          desc:'The logic classic, three board sizes, with chording and a best-time clock for each.' },
+        { file:'pool.html', name:'8-Ball Pool', icon:'\u{1F3B1}', tag:'Sports', cat:'action',
+          color:'#3498db', dark:'#2980b9',
+          desc:'Line up your shots and sink all your balls before your opponent does.' },
+        { file:'breaker.html', name:'Brick Breaker', icon:'\u{1F9F1}', tag:'Arcade', cat:'action',
+          color:'#e74c3c', dark:'#c0392b',
+          desc:'Smash every brick with your ball and paddle. How many levels can you clear?' },
+        { file:'snake.html', name:'Snake', icon:'\u{1F40D}', tag:'Arcade', cat:'action',
+          color:'#2ecc71', dark:'#27ae60',
+          desc:'Guide the snake, eat, grow longer. Do not hit the walls or yourself.' },
+    ];
+    const CATS = [
+        { key:'all', label:'All Games' },
+        { key:'action', label:'Action' },
+        { key:'puzzle', label:'Puzzle' },
+        { key:'strategy', label:'Strategy' },
+        { key:'racing', label:'Racing' },
+    ];
+    let activeCat = 'all';
+
+    function renderGames() {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+        const list = GAMES.filter(g => activeCat === 'all' || g.cat === activeCat);
+        for (const g of list) {
+            const a = document.createElement('a');
+            a.className = 'game-card';
+            a.href = g.file;
+            a.innerHTML =
+                (g.fresh ? '<span class="badge-new">NEW</span>' : '') +
+                '<div class="card-art" style="background:linear-gradient(150deg,' + g.color + '33,' + g.dark + '11)">' +
+                    '<span>' + g.icon + '</span>' +
+                '</div>' +
+                '<div class="card-body">' +
+                    '<span class="tag" style="background:' + g.color + '22;color:' + g.color + '">' + g.tag + '</span>' +
+                    '<h3>' + g.name + '</h3>' +
+                    '<p>' + g.desc + '</p>' +
+                    '<span class="play-btn" style="background:linear-gradient(135deg,' + g.color + ',' + g.dark + ')">PLAY NOW</span>' +
+                '</div>';
+            a.addEventListener('mouseenter', () => { a.style.borderColor = g.color + '88'; });
+            a.addEventListener('mouseleave', () => { a.style.borderColor = ''; });
+            grid.appendChild(a);
+        }
+        document.querySelector('.games-sub').innerHTML =
+            'Every game here is <b>original</b>, <b>free</b>, and runs instantly in your browser. ' +
+            'No downloads, no accounts. <b>' + GAMES.length + '</b> to play.';
+    }
+    function renderFilters() {
+        const host = document.getElementById('filters');
+        host.innerHTML = '';
+        for (const c of CATS) {
+            const n = c.key === 'all' ? GAMES.length : GAMES.filter(g => g.cat === c.key).length;
+            const b = document.createElement('button');
+            b.textContent = c.label + ' (' + n + ')';
+            if (c.key === activeCat) b.className = 'on';
+            b.addEventListener('click', () => { activeCat = c.key; renderFilters(); renderGames(); });
+            host.appendChild(b);
+        }
+    }
+    renderFilters();
+    renderGames();
 
     // Smooth scroll
     document.querySelector('.scroll-hint').addEventListener('click', () => {

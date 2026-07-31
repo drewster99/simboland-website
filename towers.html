@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iron Line - Simboland</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    background:#0a0a2e; color:#fff;
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height:100vh; user-select:none; -webkit-user-select:none;
+}
+.header { width:100%; padding:12px 24px; display:flex; align-items:center; gap:20px;
+    background:rgba(0,0,0,0.35); border-bottom:1px solid rgba(255,255,255,0.07); flex-wrap:wrap; }
+.header a { color:#ffe066; text-decoration:none; font-size:0.85rem; }
+.header a:hover { color:#fff; }
+.header h1 { font-size:1.25rem; color:#22d3ee; letter-spacing:2px; }
+.wrap { display:flex; gap:16px; justify-content:center; padding:18px; flex-wrap:wrap; align-items:flex-start; }
+canvas { background:#111827; border-radius:12px; display:block; max-width:96vw; height:auto;
+    border:2px solid rgba(255,255,255,0.08); touch-action:none; }
+.panel { width:250px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09);
+    border-radius:14px; padding:16px; }
+.panel h3 { font-size:0.72rem; letter-spacing:2px; color:#7a7a9a; text-transform:uppercase; margin-bottom:10px; }
+.stats { display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap; }
+.stat .k { display:block; font-size:0.62rem; color:#7a7a9a; letter-spacing:1px; }
+.stat .v { font-size:1.15rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.tbtn { width:100%; text-align:left; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+    color:#ddd; border-radius:10px; padding:10px 12px; margin-bottom:8px; cursor:pointer; font-family:inherit; }
+.tbtn:hover:not(:disabled) { background:rgba(255,255,255,0.1); }
+.tbtn.sel { border-color:#22d3ee; background:rgba(34,211,238,0.14); }
+.tbtn:disabled { opacity:0.4; cursor:not-allowed; }
+.tbtn .n { font-weight:600; font-size:0.9rem; display:flex; justify-content:space-between; }
+.tbtn .c { color:#4ade80; font-variant-numeric:tabular-nums; }
+.tbtn .d { font-size:0.74rem; color:#8a8aaa; margin-top:3px; line-height:1.4; }
+.btn { padding:10px 18px; border:none; border-radius:22px; font-weight:600; cursor:pointer;
+    font-family:inherit; font-size:0.9rem; }
+.btn-go { background:linear-gradient(135deg,#22d3ee,#0891b2); color:#04202a; width:100%; }
+.btn-go:hover { box-shadow:0 0 18px rgba(34,211,238,0.45); }
+.btn-go:disabled { opacity:0.45; cursor:default; box-shadow:none; }
+.btn-ghost { background:rgba(255,255,255,0.07); color:#ccc; border:1px solid rgba(255,255,255,0.15); }
+.sel-info { margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08); font-size:0.8rem; }
+.sel-info .row { display:flex; justify-content:space-between; padding:3px 0; color:#aaa; }
+.sel-info .row b { color:#fff; font-variant-numeric:tabular-nums; }
+.hint { color:#6a6a8a; font-size:0.76rem; line-height:1.5; margin-top:10px; }
+.overlay { position:fixed; inset:0; background:rgba(4,6,20,0.82); display:flex; align-items:center;
+    justify-content:center; z-index:60; }
+.overlay.hidden { display:none; }
+.obox { background:#141a3a; border:2px solid #22d3ee; border-radius:18px; padding:34px 40px; text-align:center; max-width:420px; }
+.obox h2 { font-size:1.8rem; margin-bottom:8px; color:#22d3ee; }
+.obox p { color:#a5b0c8; margin-bottom:18px; line-height:1.6; font-size:0.92rem; }
+footer { text-align:center; padding:20px; color:rgba(255,255,255,0.22); font-size:0.8rem; }
+@media (max-width:820px){ .panel{width:100%;max-width:520px} }
+</style>
+</head>
+<body>
+<div class="header">
+    <a href="index.html">&larr; Simboland</a>
+    <h1>IRON LINE</h1>
+</div>
+
+<div class="wrap">
+    <canvas id="game" width="900" height="600"></canvas>
+    <div class="panel">
+        <div class="stats">
+            <div class="stat"><span class="k">LIVES</span><span class="v" id="lives" style="color:#f87171">20</span></div>
+            <div class="stat"><span class="k">SCRAP</span><span class="v" id="cash" style="color:#4ade80">120</span></div>
+            <div class="stat"><span class="k">WAVE</span><span class="v" id="wave">0/24</span></div>
+        </div>
+        <button class="btn btn-go" id="goBtn">Send Wave 1</button>
+        <h3 style="margin-top:16px">Build</h3>
+        <div id="shop"></div>
+        <div id="selInfo"></div>
+        <p class="hint" id="hint">Click a buildable tile to place the selected tower. Click a tower to upgrade or sell it.</p>
+    </div>
+</div>
+
+<div class="overlay hidden" id="ov">
+    <div class="obox">
+        <h2 id="ovTitle">Overrun</h2>
+        <p id="ovMsg"></p>
+        <button class="btn btn-go" id="ovBtn">Try Again</button>
+    </div>
+</div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+
+<script>
+const cv = document.getElementById('game'), ctx = cv.getContext('2d');
+const CELL = 30, COLS = 30, ROWS = 20;
+
+/* The route the attackers walk, as grid waypoints. Everything else — which
+   tiles you may build on, where enemies are at time t — is derived from it. */
+const WAYPOINTS = [
+    [-1,3],[6,3],[6,9],[2,9],[2,16],[13,16],[13,6],[19,6],[19,13],[25,13],[25,2],[30,2]
+];
+
+const PATH = [];            // cell centres in pixels
+const PATH_CELLS = new Set();
+(function buildPath(){
+    for (let i=0;i<WAYPOINTS.length-1;i++){
+        const [ax,ay]=WAYPOINTS[i], [bx,by]=WAYPOINTS[i+1];
+        const dx=Math.sign(bx-ax), dy=Math.sign(by-ay);
+        let x=ax,y=ay;
+        while(x!==bx||y!==by){
+            PATH.push({x:x*CELL+CELL/2,y:y*CELL+CELL/2});
+            PATH_CELLS.add(x+','+y);
+            for(const [ox,oy] of [[0,0],[1,0],[0,1],[-1,0],[0,-1]]) PATH_CELLS.add((x+ox)+','+(y+oy));
+            x+=dx; y+=dy;
+        }
+    }
+    PATH.push({x:WAYPOINTS[WAYPOINTS.length-1][0]*CELL+CELL/2,y:WAYPOINTS[WAYPOINTS.length-1][1]*CELL+CELL/2});
+})();
+const PATH_LEN = (()=>{ let d=0; for(let i=1;i<PATH.length;i++) d+=Math.hypot(PATH[i].x-PATH[i-1].x,PATH[i].y-PATH[i-1].y); return d; })();
+
+function pointAt(dist){
+    if (dist<=0) return {x:PATH[0].x,y:PATH[0].y,ang:0};
+    let d=dist;
+    for(let i=1;i<PATH.length;i++){
+        const seg=Math.hypot(PATH[i].x-PATH[i-1].x,PATH[i].y-PATH[i-1].y);
+        if(d<=seg){
+            const t=d/seg;
+            return {x:PATH[i-1].x+(PATH[i].x-PATH[i-1].x)*t, y:PATH[i-1].y+(PATH[i].y-PATH[i-1].y)*t,
+                    ang:Math.atan2(PATH[i].y-PATH[i-1].y,PATH[i].x-PATH[i-1].x)};
+        }
+        d-=seg;
+    }
+    const last=PATH[PATH.length-1];
+    return {x:last.x,y:last.y,ang:0};
+}
+
+/* ---- Tower catalogue ------------------------------------------------- */
+const TOWERS = {
+    gun:   { name:'Auto Cannon', cost:40,  color:'#22d3ee', desc:'Rapid single-target fire. Cheap and reliable.',
+             range:105, rate:0.28, dmg:9,  bullet:'#a5f3fc', splash:0, slow:0 },
+    frost: { name:'Cryo Emitter', cost:65, color:'#818cf8', desc:'Chills everything in range, slowing it by 45%.',
+             range:95,  rate:0.9,  dmg:3,  bullet:'#c7d2fe', splash:0, slow:0.45 },
+    mortar:{ name:'Mortar',      cost:90,  color:'#fb923c', desc:'Slow lobbed shells with heavy splash damage.',
+             range:150, rate:1.5, dmg:34, bullet:'#fed7aa', splash:52, slow:0 },
+    tesla: { name:'Tesla Coil',  cost:130, color:'#facc15', desc:'Chains lightning between up to four targets.',
+             range:120, rate:0.75, dmg:22, bullet:'#fef08a', splash:0, slow:0, chain:4 },
+};
+
+/* ---- Enemy types ----------------------------------------------------- */
+const ENEMIES = {
+    runner:{ name:'Runner', hp:26,  speed:96, reward:6,  color:'#f472b6', r:7,  armor:0 },
+    grunt: { name:'Grunt',  hp:62,  speed:62, reward:9,  color:'#94a3b8', r:9,  armor:1 },
+    brute: { name:'Brute',  hp:210, speed:38, reward:22, color:'#a78bfa', r:13, armor:4 },
+    swarm: { name:'Swarm',  hp:16,  speed:120,reward:3,  color:'#4ade80', r:5,  armor:0 },
+    boss:  { name:'Titan',  hp:1400,speed:28, reward:150,color:'#ef4444', r:19, armor:8 },
+};
+
+/* Twenty-four waves, hand-shaped so the difficulty curve has texture rather
+   than being a straight multiply. */
+function wavePlan(n){
+    const out=[];
+    const push=(type,count,gap,delay)=>out.push({type,count,gap,delay});
+    if(n%8===0){ push('boss',1,0,0); push('grunt',6+n,0.5,2); return out; }
+    if(n<=2){ push('runner',6+n*3,0.75,0); }
+    else if(n<=4){ push('runner',8,0.6,0); push('grunt',4+n,0.9,3); }
+    else if(n<=7){ push('swarm',10+n,0.28,0); push('grunt',6+n,0.8,4); }
+    else if(n<=12){ push('grunt',8+n,0.6,0); push('brute',Math.floor(n/3),1.6,3); push('runner',10,0.4,8); }
+    else { push('swarm',18,0.2,0); push('grunt',12,0.45,2); push('brute',2+Math.floor(n/3),1.3,5); push('runner',14,0.3,9); }
+    return out;
+}
+const TOTAL_WAVES = 24;
+
+let state;
+function reset(){
+    state = {
+        lives:20, cash:120, wave:0, running:false, over:false,
+        towers:[], enemies:[], shots:[], fx:[],
+        spawnQueue:[], t:0, selectedType:'gun', selectedTower:null, hover:null, speed:1,
+    };
+    document.getElementById('ov').classList.add('hidden');
+    syncUI();
+}
+
+/* ---- Audio ----------------------------------------------------------- */
+let ac=null;
+function actx(){ if(!ac){ const C=window.AudioContext||window.webkitAudioContext; if(C) ac=new C(); } return ac; }
+function blip(freq,dur,type,vol){
+    const a=actx(); if(!a) return;
+    const o=a.createOscillator(), g=a.createGain();
+    o.type=type||'square'; o.frequency.setValueAtTime(freq,a.currentTime);
+    g.gain.setValueAtTime(vol||0.05,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
+    o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+dur+0.02);
+}
+
+/* ---- Placement ------------------------------------------------------- */
+function cellFree(cx,cy){
+    if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
+    if(PATH_CELLS.has(cx+','+cy)) return false;
+    return !state.towers.some(t=>t.cx===cx&&t.cy===cy);
+}
+function towerAt(cx,cy){ return state.towers.find(t=>t.cx===cx&&t.cy===cy); }
+
+cv.addEventListener('mousemove',e=>{
+    const r=cv.getBoundingClientRect(), s=cv.width/r.width;
+    state.hover={cx:Math.floor((e.clientX-r.left)*s/CELL), cy:Math.floor((e.clientY-r.top)*s/CELL)};
+});
+cv.addEventListener('mouseleave',()=>state.hover=null);
+cv.addEventListener('click',e=>{
+    const r=cv.getBoundingClientRect(), s=cv.width/r.width;
+    const cx=Math.floor((e.clientX-r.left)*s/CELL), cy=Math.floor((e.clientY-r.top)*s/CELL);
+    const existing=towerAt(cx,cy);
+    if(existing){ state.selectedTower=existing; syncUI(); return; }
+    state.selectedTower=null;
+    const spec=TOWERS[state.selectedType];
+    if(cellFree(cx,cy)&&state.cash>=spec.cost){
+        state.cash-=spec.cost;
+        state.towers.push({cx,cy,x:cx*CELL+CELL/2,y:cy*CELL+CELL/2,type:state.selectedType,
+            lvl:1,cd:0,angle:-Math.PI/2,invested:spec.cost});
+        blip(520,0.09,'square',0.05);
+    } else if(cellFree(cx,cy)) blip(140,0.12,'sawtooth',0.04);
+    syncUI();
+});
+
+function towerStat(t){
+    const s=TOWERS[t.type], m=1+(t.lvl-1)*0.55;
+    return { range:s.range*(1+(t.lvl-1)*0.12), rate:s.rate/(1+(t.lvl-1)*0.18),
+             dmg:s.dmg*m, splash:s.splash*(1+(t.lvl-1)*0.1), slow:s.slow, chain:s.chain, color:s.color };
+}
+
+/* ---- Waves ----------------------------------------------------------- */
+function sendWave(){
+    if(state.running||state.over) return;
+    state.wave++;
+    state.running=true;
+    const plan=wavePlan(state.wave);
+    state.spawnQueue=[];
+    for(const grp of plan)
+        for(let i=0;i<grp.count;i++)
+            state.spawnQueue.push({at:state.t+grp.delay+i*grp.gap,type:grp.type});
+    state.spawnQueue.sort((a,b)=>a.at-b.at);
+    syncUI();
+}
+function spawn(type){
+    const e=ENEMIES[type];
+    const scale=1+Math.max(0,state.wave-1)*0.11;
+    state.enemies.push({type,d:0,hp:e.hp*scale,max:e.hp*scale,speed:e.speed,slow:0,
+        reward:e.reward,color:e.color,r:e.r,armor:e.armor});
+}
+
+/* ---- Simulation ------------------------------------------------------ */
+function step(dt){
+    if(state.over) return;
+    state.t+=dt;
+    while(state.spawnQueue.length&&state.spawnQueue[0].at<=state.t) spawn(state.spawnQueue.shift().type);
+
+    for(const e of state.enemies){
+        const mult=e.slow>0?(1-e.slow):1;
+        e.slow=Math.max(0,e.slow-dt*1.4);
+        e.d+=e.speed*mult*dt;
+        if(e.d>=PATH_LEN){ e.dead=true; e.leaked=true; }
+    }
+    for(const e of state.enemies){
+        if(e.leaked){ state.lives--; blip(90,0.25,'sawtooth',0.06);
+            if(state.lives<=0) end(false); }
+    }
+    state.enemies=state.enemies.filter(e=>!e.dead);
+
+    for(const t of state.towers){
+        const st=towerStat(t);
+        t.cd-=dt;
+        if(st.slow>0){
+            let hit=false;
+            for(const e of state.enemies){
+                const p=pointAt(e.d);
+                if(Math.hypot(p.x-t.x,p.y-t.y)<=st.range){ e.slow=Math.max(e.slow,st.slow); hit=true;
+                    if(t.cd<=0) damage(e,st.dmg,t); }
+            }
+            if(t.cd<=0){ t.cd=st.rate; if(hit) state.fx.push({kind:'ring',x:t.x,y:t.y,r:st.range,life:0.3,max:0.3,color:st.color}); }
+            continue;
+        }
+        if(t.cd>0) continue;
+        // Target whichever enemy in range is furthest along the route.
+        let best=null,bestD=-1;
+        for(const e of state.enemies){
+            const p=pointAt(e.d);
+            if(Math.hypot(p.x-t.x,p.y-t.y)<=st.range && e.d>bestD){ best=e; bestD=e.d; }
+        }
+        if(!best) continue;
+        const bp=pointAt(best.d);
+        t.angle=Math.atan2(bp.y-t.y,bp.x-t.x);
+        t.cd=st.rate;
+        if(st.chain){
+            const chained=[best]; let from=best;
+            while(chained.length<st.chain){
+                let nx=null,nd=1e9;
+                for(const e of state.enemies){
+                    if(chained.includes(e)) continue;
+                    const fp=pointAt(from.d), ep=pointAt(e.d);
+                    const dd=Math.hypot(fp.x-ep.x,fp.y-ep.y);
+                    if(dd<80&&dd<nd){ nx=e; nd=dd; }
+                }
+                if(!nx) break; chained.push(nx); from=nx;
+            }
+            let prev={x:t.x,y:t.y};
+            for(const e of chained){
+                const p=pointAt(e.d);
+                state.fx.push({kind:'bolt',x1:prev.x,y1:prev.y,x2:p.x,y2:p.y,life:0.14,max:0.14,color:st.color});
+                damage(e,st.dmg,t); prev=p;
+            }
+            blip(880,0.07,'square',0.04);
+        } else {
+            state.shots.push({x:t.x,y:t.y,target:best,speed:st.splash?260:460,dmg:st.dmg,
+                splash:st.splash,color:TOWERS[t.type].color,src:t});
+            blip(st.splash?200:660,0.05,st.splash?'triangle':'square',0.03);
+        }
+    }
+
+    for(const s of state.shots){
+        if(!s.target||s.target.dead){ s.dead=true; continue; }
+        const p=pointAt(s.target.d);
+        const dx=p.x-s.x, dy=p.y-s.y, d=Math.hypot(dx,dy);
+        if(d<10){
+            s.dead=true;
+            if(s.splash){
+                state.fx.push({kind:'boom',x:p.x,y:p.y,r:s.splash,life:0.3,max:0.3,color:s.color});
+                for(const e of state.enemies){
+                    const ep=pointAt(e.d);
+                    if(Math.hypot(ep.x-p.x,ep.y-p.y)<=s.splash) damage(e,s.dmg,s.src);
+                }
+            } else damage(s.target,s.dmg,s.src);
+        } else { s.x+=dx/d*s.speed*dt; s.y+=dy/d*s.speed*dt; }
+    }
+    state.shots=state.shots.filter(s=>!s.dead);
+
+    for(const f of state.fx) f.life-=dt;
+    state.fx=state.fx.filter(f=>f.life>0);
+    state.enemies=state.enemies.filter(e=>!e.dead);
+
+    if(state.running&&state.spawnQueue.length===0&&state.enemies.length===0){
+        state.running=false;
+        state.cash+=18+state.wave*4;
+        blip(700,0.18,'sine',0.06);
+        if(state.wave>=TOTAL_WAVES) end(true);
+        syncUI();
+    }
+}
+
+function damage(e,dmg,src){
+    const real=Math.max(1,dmg-(e.armor||0));
+    e.hp-=real;
+    if(e.hp<=0&&!e.dead){
+        e.dead=true;
+        state.cash+=e.reward;
+        const p=pointAt(e.d);
+        state.fx.push({kind:'pop',x:p.x,y:p.y,life:0.3,max:0.3,color:e.color});
+        blip(300,0.05,'triangle',0.03);
+    }
+}
+
+function end(won){
+    state.over=true; state.running=false;
+    document.getElementById('ovTitle').textContent = won?'Line Held':'Overrun';
+    document.getElementById('ovTitle').style.color = won?'#4ade80':'#f87171';
+    document.getElementById('ovMsg').textContent = won
+        ? 'All 24 waves stopped. Nothing got through that you did not let through.'
+        : 'The line broke on wave '+state.wave+'. Try a different mix — cryo up front, mortars behind.';
+    document.getElementById('ov').classList.remove('hidden');
+}
+
+/* ---- Rendering ------------------------------------------------------- */
+function draw(){
+    ctx.fillStyle='#111827'; ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.strokeStyle='rgba(255,255,255,0.035)'; ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let x=0;x<=COLS;x++){ ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,ROWS*CELL); }
+    for(let y=0;y<=ROWS;y++){ ctx.moveTo(0,y*CELL); ctx.lineTo(COLS*CELL,y*CELL); }
+    ctx.stroke();
+
+    // Route
+    ctx.strokeStyle='#2b3550'; ctx.lineWidth=CELL*0.92; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath(); PATH.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    ctx.strokeStyle='#3b465f'; ctx.lineWidth=CELL*0.7;
+    ctx.beginPath(); PATH.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    ctx.setLineDash([7,11]); ctx.strokeStyle='rgba(255,255,255,0.16)'; ctx.lineWidth=2;
+    ctx.beginPath(); PATH.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Entry and exit
+    const a=PATH[0], z=PATH[PATH.length-1];
+    ctx.fillStyle='rgba(248,113,113,0.85)'; ctx.fillRect(a.x-CELL/2,a.y-CELL/2,6,CELL);
+    ctx.fillStyle='rgba(74,222,128,0.85)'; ctx.fillRect(z.x-3,z.y-CELL/2,6,CELL);
+
+    // Placement preview
+    if(state.hover&&!state.selectedTower){
+        const {cx,cy}=state.hover;
+        if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
+            const ok=cellFree(cx,cy)&&state.cash>=TOWERS[state.selectedType].cost;
+            ctx.fillStyle=ok?'rgba(34,211,238,0.18)':'rgba(248,113,113,0.18)';
+            ctx.fillRect(cx*CELL,cy*CELL,CELL,CELL);
+            if(ok){
+                ctx.strokeStyle='rgba(34,211,238,0.35)'; ctx.lineWidth=1.5;
+                ctx.beginPath(); ctx.arc(cx*CELL+CELL/2,cy*CELL+CELL/2,TOWERS[state.selectedType].range,0,7); ctx.stroke();
+            }
+        }
+    }
+    if(state.selectedTower){
+        const t=state.selectedTower, st=towerStat(t);
+        ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.arc(t.x,t.y,st.range,0,7); ctx.stroke();
+        ctx.fillStyle='rgba(255,255,255,0.10)'; ctx.fillRect(t.cx*CELL,t.cy*CELL,CELL,CELL);
+    }
+
+    for(const t of state.towers) drawTower(t);
+
+    for(const e of state.enemies){
+        const p=pointAt(e.d);
+        ctx.fillStyle='rgba(0,0,0,0.35)';
+        ctx.beginPath(); ctx.arc(p.x+2,p.y+3,e.r,0,7); ctx.fill();
+        ctx.fillStyle=e.slow>0?'#93c5fd':e.color;
+        ctx.beginPath(); ctx.arc(p.x,p.y,e.r,0,7); ctx.fill();
+        ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=1.5; ctx.stroke();
+        const w=e.r*2.2, f=Math.max(0,e.hp/e.max);
+        ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(p.x-w/2,p.y-e.r-8,w,4);
+        ctx.fillStyle=f>0.5?'#4ade80':f>0.25?'#facc15':'#f87171';
+        ctx.fillRect(p.x-w/2,p.y-e.r-8,w*f,4);
+    }
+
+    for(const s of state.shots){
+        ctx.fillStyle=s.color;
+        ctx.beginPath(); ctx.arc(s.x,s.y,s.splash?5:3,0,7); ctx.fill();
+    }
+
+    for(const f of state.fx){
+        const k=f.life/f.max;
+        ctx.globalAlpha=k;
+        if(f.kind==='bolt'){
+            ctx.strokeStyle=f.color; ctx.lineWidth=3;
+            ctx.beginPath(); ctx.moveTo(f.x1,f.y1);
+            const mx=(f.x1+f.x2)/2+(Math.random()-0.5)*14, my=(f.y1+f.y2)/2+(Math.random()-0.5)*14;
+            ctx.lineTo(mx,my); ctx.lineTo(f.x2,f.y2); ctx.stroke();
+        } else if(f.kind==='boom'){
+            ctx.fillStyle=f.color;
+            ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(1.1-k*0.5),0,7); ctx.fill();
+        } else if(f.kind==='ring'){
+            ctx.strokeStyle=f.color; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(1-k*0.15),0,7); ctx.stroke();
+        } else {
+            ctx.fillStyle=f.color;
+            ctx.beginPath(); ctx.arc(f.x,f.y,12*(1-k),0,7); ctx.fill();
+        }
+        ctx.globalAlpha=1;
+    }
+}
+
+function drawTower(t){
+    const spec=TOWERS[t.type];
+    ctx.save(); ctx.translate(t.x,t.y);
+    ctx.fillStyle='rgba(0,0,0,0.4)';
+    ctx.beginPath(); ctx.arc(2,3,12,0,7); ctx.fill();
+    ctx.fillStyle='#1f2937';
+    ctx.beginPath(); ctx.arc(0,0,12,0,7); ctx.fill();
+    ctx.strokeStyle=spec.color; ctx.lineWidth=2; ctx.stroke();
+    ctx.rotate(t.angle);
+    ctx.fillStyle=spec.color;
+    if(t.type==='mortar'){ ctx.fillRect(-4,-6,16,12); }
+    else if(t.type==='frost'){ ctx.beginPath(); ctx.arc(0,0,6,0,7); ctx.fill(); }
+    else if(t.type==='tesla'){ ctx.fillRect(-3,-3,6,6); ctx.fillRect(6,-2,6,4); }
+    else { ctx.fillRect(0,-3,15,6); }
+    ctx.restore();
+    for(let i=0;i<t.lvl-1;i++){
+        ctx.fillStyle='#fbbf24';
+        ctx.beginPath(); ctx.arc(t.x-6+i*6,t.y+15,2.2,0,7); ctx.fill();
+    }
+}
+
+/* ---- UI -------------------------------------------------------------- */
+function syncUI(){
+    document.getElementById('lives').textContent=Math.max(0,state.lives);
+    document.getElementById('cash').textContent=state.cash;
+    document.getElementById('wave').textContent=state.wave+'/'+TOTAL_WAVES;
+    const go=document.getElementById('goBtn');
+    go.disabled=state.running||state.over;
+    go.textContent=state.running?'Wave '+state.wave+' incoming…':'Send Wave '+(state.wave+1);
+
+    const shop=document.getElementById('shop');
+    shop.innerHTML='';
+    for(const key of Object.keys(TOWERS)){
+        const s=TOWERS[key];
+        const b=document.createElement('button');
+        b.className='tbtn'+(state.selectedType===key?' sel':'');
+        b.disabled=state.cash<s.cost;
+        b.innerHTML='<span class="n"><span style="color:'+s.color+'">'+s.name+'</span><span class="c">'+s.cost+'</span></span>'+
+                    '<span class="d">'+s.desc+'</span>';
+        b.addEventListener('click',()=>{ state.selectedType=key; state.selectedTower=null; syncUI(); });
+        shop.appendChild(b);
+    }
+
+    const info=document.getElementById('selInfo');
+    if(state.selectedTower){
+        const t=state.selectedTower, st=towerStat(t), spec=TOWERS[t.type];
+        const up=Math.round(spec.cost*(0.75+t.lvl*0.5));
+        const sell=Math.round(t.invested*0.6);
+        info.innerHTML='<h3 style="margin-top:14px">'+spec.name+' &middot; Level '+t.lvl+'</h3>'+
+            '<div class="row"><span>Damage</span><b>'+st.dmg.toFixed(0)+'</b></div>'+
+            '<div class="row"><span>Range</span><b>'+st.range.toFixed(0)+'</b></div>'+
+            '<div class="row"><span>Every</span><b>'+st.rate.toFixed(2)+'s</b></div>';
+        const bar=document.createElement('div');
+        bar.style.cssText='display:flex;gap:8px;margin-top:10px';
+        const ub=document.createElement('button');
+        ub.className='btn btn-go'; ub.style.flex='1'; ub.style.padding='8px';
+        ub.textContent=t.lvl>=4?'Max':'Upgrade '+up;
+        ub.disabled=t.lvl>=4||state.cash<up;
+        ub.addEventListener('click',()=>{ state.cash-=up; t.lvl++; t.invested+=up; blip(760,0.1,'square',0.05); syncUI(); });
+        const sb=document.createElement('button');
+        sb.className='btn btn-ghost'; sb.style.padding='8px 12px';
+        sb.textContent='Sell '+sell;
+        sb.addEventListener('click',()=>{ state.cash+=sell;
+            state.towers=state.towers.filter(x=>x!==t); state.selectedTower=null; syncUI(); });
+        bar.appendChild(ub); bar.appendChild(sb);
+        info.appendChild(bar);
+    } else info.innerHTML='';
+}
+
+document.getElementById('goBtn').addEventListener('click',()=>{ actx(); sendWave(); });
+document.getElementById('ovBtn').addEventListener('click',()=>{ reset(); });
+
+let last=performance.now();
+function loop(now){
+    const dt=Math.min(0.05,(now-last)/1000); last=now;
+    step(dt); draw();
+    if(!state.over) syncLight();
+    requestAnimationFrame(loop);
+}
+let lastCash=-1,lastLives=-1;
+function syncLight(){
+    if(state.cash!==lastCash||state.lives!==lastLives){
+        lastCash=state.cash; lastLives=state.lives; syncUI();
+    }
+}
+reset();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

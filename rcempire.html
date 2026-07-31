@@ -3092,7 +3092,7 @@ function simulateFieldRace(field, track, playerSkill) {
     race = {
         track: track, geom: geom, plan: null,
         cars: cars, player: cars[0],
-        state: 'racing', countdown: 0, time: 0,
+        state: 'racing', countdown: 0, time: 0, zoom: ZOOM_SLOW,
         lastFrameMs: 0, accumulator: 0,
         skidMarks: [], particles: [],
         message: null, messageTimer: 0, endCountdown: 0,
@@ -3539,7 +3539,17 @@ function isInDriftZone(track, geom, s) {
    friction budget per axle (the friction circle), which is why flooring
    it mid-corner spins the car.
    ================================================================== */
-const PIXELS_PER_M = 30;
+/* Camera zoom follows speed. Close in when you are slow, so the car and the
+   angle it is sliding at are readable, and ease back out as you speed up so
+   you can still see the corner you are arriving at. The fast end matches the
+   old fixed zoom, so nothing is ever framed tighter than it used to be at
+   speed -- at 56 mph the visible height is already only about 0.7 seconds
+   away, and taking more than that would be driving blind. */
+const ZOOM_SLOW = 54;          // px per metre at walking pace
+const ZOOM_FAST = 30;          // px per metre once genuinely quick
+const ZOOM_SLOW_MPS = 6;
+const ZOOM_FAST_MPS = 18;
+const ZOOM_EASE_PER_SEC = 2.2; // how quickly the camera settles
 const PHYSICS_DT = 1 / 120;         // fixed timestep, sub-stepped per frame
 const AXLE_FRONT = WHEELBASE / 2;
 const AXLE_REAR = WHEELBASE / 2;
@@ -3581,6 +3591,7 @@ function startRace(plan) {
         player: cars[0],
         state: 'countdown',
         countdown: 3.2,
+        zoom: ZOOM_SLOW,
         time: 0,
         lastFrameMs: 0,
         accumulator: 0,
@@ -3695,7 +3706,17 @@ function raceFrame(nowMs) {
     if (race.state !== 'over') rafHandle = requestAnimationFrame(raceFrame);
 }
 
+/** Ease the camera toward the zoom suited to the player's current speed. */
+function updateCamera(dt) {
+    if (race.zoom === undefined) race.zoom = ZOOM_SLOW;
+    const speed = Math.hypot(race.player.vx, race.player.vy);
+    const t = clamp((speed - ZOOM_SLOW_MPS) / (ZOOM_FAST_MPS - ZOOM_SLOW_MPS), 0, 1);
+    const target = lerp(ZOOM_SLOW, ZOOM_FAST, t);
+    race.zoom += (target - race.zoom) * Math.min(1, ZOOM_EASE_PER_SEC * dt);
+}
+
 function stepRace(dt) {
+    updateCamera(dt);
     if (race.state === 'countdown') {
         // Cars sit stationary on the grid, so nothing needs integrating.
         race.countdown -= dt;
@@ -4306,7 +4327,26 @@ function drawRace() {
     const player = race.player;
 
     // Camera leads the car slightly in the direction of travel.
-    const leadX = player.vx * 0.35, leadY = player.vy * 0.35;
+    /* Lead the camera in the direction of travel so you see where you are
+       going. Uncapped it grows with speed and shoves the car into the corner
+       of the screen exactly when it most needs watching, so it is limited to
+       a share of the distance from the centre of the view to its edge --
+       measured along the direction of travel, which is generous down the long
+       axis of the screen and tight across the short one. */
+    let leadX = player.vx * 0.40, leadY = player.vy * 0.40;
+    const leadDistance = Math.hypot(leadX, leadY);
+    if (leadDistance > 0.001) {
+        const dirX = leadX / leadDistance, dirY = leadY / leadDistance;
+        const halfW = W / 2 / race.zoom, halfH = H / 2 / race.zoom;
+        const toEdge = Math.min(
+            Math.abs(dirX) > 1e-6 ? halfW / Math.abs(dirX) : Infinity,
+            Math.abs(dirY) > 1e-6 ? halfH / Math.abs(dirY) : Infinity);
+        const maxLead = toEdge * 0.55;
+        if (leadDistance > maxLead) {
+            const k = maxLead / leadDistance;
+            leadX *= k; leadY *= k;
+        }
+    }
     const camX = player.x + leadX;
     const camY = player.y + leadY;
 
@@ -4315,7 +4355,7 @@ function drawRace() {
 
     rctx.save();
     rctx.translate(W / 2, H / 2);
-    rctx.scale(PIXELS_PER_M, PIXELS_PER_M);
+    rctx.scale(race.zoom, race.zoom);
     rctx.translate(-camX, -camY);
 
     drawGroundTexture(camX, camY, W, H);
@@ -4336,7 +4376,7 @@ function groundColor(surface) {
 function drawGroundTexture(camX, camY, W, H) {
     // A faint grid gives a sense of speed without costing much.
     const spacing = 4;
-    const halfW = W / 2 / PIXELS_PER_M, halfH = H / 2 / PIXELS_PER_M;
+    const halfW = W / 2 / race.zoom, halfH = H / 2 / race.zoom;
     const x0 = Math.floor((camX - halfW) / spacing) * spacing;
     const y0 = Math.floor((camY - halfH) / spacing) * spacing;
     rctx.strokeStyle = 'rgba(255,255,255,0.035)';
@@ -4462,7 +4502,7 @@ function drawRaceCar(car) {
     // Position marker above each car so the field is readable at a glance.
     rctx.save();
     rctx.translate(car.x, car.y - 0.75);
-    rctx.scale(1 / PIXELS_PER_M, 1 / PIXELS_PER_M);
+    rctx.scale(1 / race.zoom, 1 / race.zoom);
     rctx.font = 'bold 12px "Segoe UI", sans-serif';
     rctx.textAlign = 'center';
     rctx.textBaseline = 'middle';
