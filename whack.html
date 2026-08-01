@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Molepatch - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#ca8a04;letter-spacing:2px}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px}
+canvas{background:#1b2410;border-radius:14px;border:2px solid rgba(255,255,255,.08);display:block;max-width:96vw;height:auto;cursor:pointer;touch-action:none}
+.help{color:#7a7a9a;font-size:.8rem;text-align:center;line-height:1.6}
+.overlay{position:fixed;inset:0;background:rgba(4,6,20,.85);display:flex;align-items:center;justify-content:center;z-index:60}
+.overlay.hidden{display:none}
+.obox{background:#2a2410;border:2px solid #ca8a04;border-radius:18px;padding:32px 40px;text-align:center;max-width:380px}
+.obox h2{font-size:1.8rem;margin-bottom:8px;color:#eab308;letter-spacing:2px}
+.obox p{color:#ded1a4;margin-bottom:18px;line-height:1.6;font-size:.92rem}
+.btn{padding:11px 26px;border:none;border-radius:24px;font-weight:600;cursor:pointer;font-family:inherit;font-size:.95rem;background:linear-gradient(135deg,#eab308,#a16207);color:#2a1f00}
+.btn:hover{box-shadow:0 0 20px rgba(234,179,8,.5)}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>MOLEPATCH</h1></div>
+<div class="wrap">
+  <canvas id="game" width="720" height="520"></canvas>
+  <p class="help">Forty-five seconds. Bop the moles, leave the rabbits alone &mdash; they cost you time.
+     Gold moles are worth triple.</p>
+</div>
+<div class="overlay" id="ov"><div class="obox">
+  <h2 id="ovTitle">MOLEPATCH</h2><p id="ovMsg">Nine holes, one mallet, three quarters of a minute.</p>
+  <button class="btn" id="ovBtn">Start</button>
+</div></div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const cv=document.getElementById('game'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+const COLS=3,ROWS=3,HOLES=[];
+for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+  HOLES.push({x:120+c*240, y:130+r*150, r:56});
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function snd(f0,f1,d,t,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type=t||'sine';o.frequency.setValueAtTime(f0,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+d);
+g.gain.setValueAtTime(v||.04,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.02);}
+let best=0; try{best=parseInt(localStorage.getItem('whackBest')||'0',10)||0;}catch(e){}
+let S;
+function reset(){
+  S={m:HOLES.map(()=>({up:0,t:0,kind:'mole',hit:false})),score:0,hits:0,misses:0,
+     left:45,over:false,started:false,spawn:0,pops:[],mallet:{x:W/2,y:H/2,t:0},combo:0};
+}
+function spawn(){
+  const free=S.m.map((m,i)=>i).filter(i=>S.m[i].up<=0);
+  if(!free.length) return;
+  const i=free[Math.floor(Math.random()*free.length)];
+  const roll=Math.random();
+  const kind = roll<0.14 ? 'rabbit' : roll<0.24 ? 'gold' : 'mole';
+  const dur = kind==='gold' ? 0.75 : 1.0+Math.random()*0.5;
+  S.m[i]={up:dur,max:dur,t:0,kind,hit:false};
+  S.spawn = Math.max(0.24, 0.72 - (45-S.left)*0.008);
+}
+cv.addEventListener('pointerdown',e=>{
+  if(!S.started||S.over) return;
+  actx();
+  const r=cv.getBoundingClientRect(), s=cv.width/r.width;
+  const mx=(e.clientX-r.left)*s, my=(e.clientY-r.top)*s;
+  S.mallet={x:mx,y:my,t:0.16};
+  for(let i=0;i<HOLES.length;i++){
+    const h=HOLES[i], m=S.m[i];
+    if(m.up<=0||m.hit) continue;
+    const rise=Math.min(1,m.t*6);
+    const cy=h.y-rise*44;
+    if(Math.hypot(mx-h.x,my-cy)<48){
+      m.hit=true; m.up=Math.min(m.up,0.18);
+      if(m.kind==='rabbit'){
+        S.left=Math.max(0,S.left-3); S.combo=0;
+        S.pops.push({x:h.x,y:cy,text:'-3s',color:'#f87171',life:.6,max:.6});
+        snd(200,90,.25,'sawtooth',.05);
+      } else {
+        S.hits++; S.combo++;
+        const v=(m.kind==='gold'?300:100)+Math.min(200,S.combo*12);
+        S.score+=v;
+        S.pops.push({x:h.x,y:cy,text:'+'+v,color:m.kind==='gold'?'#fbbf24':'#4ade80',life:.6,max:.6});
+        snd(m.kind==='gold'?900:620,1300,.09,'sine',.045);
+      }
+      return;
+    }
+  }
+  S.misses++; S.combo=0;
+  snd(160,120,.09,'square',.025);
+});
+function step(dt){
+  if(!S.started||S.over) return;
+  S.left-=dt;
+  if(S.left<=0){ S.left=0; end(); return; }
+  S.spawn-=dt;
+  if(S.spawn<=0) spawn();
+  for(const m of S.m){ if(m.up>0){ m.up-=dt; m.t+=dt; } }
+  for(const p of S.pops) p.life-=dt;
+  S.pops=S.pops.filter(p=>p.life>0);
+  if(S.mallet.t>0) S.mallet.t-=dt;
+}
+function end(){
+  S.over=true;
+  if(S.score>best){best=S.score;try{localStorage.setItem('whackBest',String(best));}catch(e){}}
+  document.getElementById('ovTitle').textContent='TIME';
+  document.getElementById('ovMsg').innerHTML='Score <b>'+S.score.toLocaleString()+'</b> &middot; '+S.hits+
+    ' bopped &middot; '+S.misses+' swings missed<br>Best <b>'+best.toLocaleString()+'</b>';
+  document.getElementById('ovBtn').textContent='Again';
+  document.getElementById('ov').classList.remove('hidden');
+  snd(520,900,.3,'sine',.06);
+}
+function draw(){
+  ctx.fillStyle='#1b2410'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,255,255,.025)';
+  for(let i=0;i<W;i+=22) for(let j=90;j<H;j+=22) if((i+j)%44===0) ctx.fillRect(i,j,9,3);
+  for(let i=0;i<HOLES.length;i++){
+    const h=HOLES[i], m=S.m[i];
+    ctx.fillStyle='#0d1207';
+    ctx.beginPath(); ctx.ellipse(h.x,h.y,h.r,h.r*0.42,0,0,7); ctx.fill();
+    ctx.strokeStyle='#2f3d18'; ctx.lineWidth=5; ctx.stroke();
+    if(m.up>0){
+      const rise=Math.min(1,m.t*6)*(m.hit?Math.max(0,m.up/0.18):1);
+      const cy=h.y-rise*44;
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(h.x,h.y,h.r-4,h.r*0.42,0,0,7);
+      ctx.rect(h.x-h.r,0,h.r*2,h.y); ctx.clip();
+      const body = m.kind==='rabbit' ? '#e5e7eb' : m.kind==='gold' ? '#fbbf24' : '#8b5a2b';
+      ctx.fillStyle=body;
+      ctx.beginPath(); ctx.arc(h.x,cy,38,0,7); ctx.fill();
+      if(m.kind==='rabbit'){
+        ctx.fillStyle='#e5e7eb';
+        ctx.beginPath(); ctx.ellipse(h.x-13,cy-40,8,22,0,0,7); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(h.x+13,cy-40,8,22,0,0,7); ctx.fill();
+        ctx.fillStyle='#fbcfe8';
+        ctx.beginPath(); ctx.ellipse(h.x-13,cy-40,4,15,0,0,7); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(h.x+13,cy-40,4,15,0,0,7); ctx.fill();
+      }
+      ctx.fillStyle='#fff';
+      ctx.beginPath(); ctx.arc(h.x-12,cy-6,7,0,7); ctx.fill();
+      ctx.beginPath(); ctx.arc(h.x+12,cy-6,7,0,7); ctx.fill();
+      ctx.fillStyle='#111';
+      const sq=m.hit?1:0;
+      ctx.beginPath(); ctx.arc(h.x-12,cy-6,sq?2:3.4,0,7); ctx.fill();
+      ctx.beginPath(); ctx.arc(h.x+12,cy-6,sq?2:3.4,0,7); ctx.fill();
+      ctx.fillStyle=m.kind==='rabbit'?'#f9a8d4':'#3f2a14';
+      ctx.beginPath(); ctx.ellipse(h.x,cy+8,9,6,0,0,7); ctx.fill();
+      ctx.restore();
+    }
+  }
+  for(const p of S.pops){
+    ctx.globalAlpha=Math.max(0,p.life/p.max);
+    ctx.fillStyle=p.color; ctx.font='bold 20px "Segoe UI"'; ctx.textAlign='center';
+    ctx.fillText(p.text,p.x,p.y-40-(1-p.life/p.max)*26);
+    ctx.globalAlpha=1;
+  }
+  if(S.mallet.t>0){
+    ctx.save(); ctx.translate(S.mallet.x,S.mallet.y);
+    ctx.rotate(-0.5+S.mallet.t*3);
+    ctx.fillStyle='#78350f'; ctx.fillRect(-4,-4,10,52);
+    ctx.fillStyle='#a8a29e'; ctx.fillRect(-24,-24,48,26);
+    ctx.restore();
+  }
+  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(0,0,W,74);
+  ctx.fillStyle='#fff'; ctx.font='bold 26px "Segoe UI"'; ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText(S.score.toLocaleString(),18,14);
+  ctx.font='11px "Segoe UI"'; ctx.fillStyle='#9a9a7a'; ctx.fillText('BEST '+best.toLocaleString(),18,46);
+  ctx.textAlign='right'; ctx.font='bold 26px "Segoe UI"';
+  ctx.fillStyle=S.left<10?'#f87171':'#eab308';
+  ctx.fillText(Math.ceil(S.left)+'s',W-18,14);
+  if(S.combo>2){ ctx.font='bold 13px "Segoe UI"'; ctx.fillStyle='#fbbf24';
+    ctx.fillText(S.combo+' in a row',W-18,48); }
+  ctx.fillStyle='rgba(255,255,255,.1)'; ctx.fillRect(0,72,W,4);
+  ctx.fillStyle=S.left<10?'#f87171':'#eab308'; ctx.fillRect(0,72,W*(S.left/45),4);
+}
+document.getElementById('ovBtn').addEventListener('click',()=>{
+  actx(); reset(); S.started=true; document.getElementById('ov').classList.add('hidden');
+});
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;step(dt);draw();requestAnimationFrame(loop);}
+reset(); requestAnimationFrame(loop);
+</script></body></html>

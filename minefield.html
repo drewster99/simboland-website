@@ -91,7 +91,7 @@ function loadBest(){ try{ const v=localStorage.getItem(bestKey()); return v?pars
 function reset(){
     const L=LEVELS[level];
     cv.width=L.cols*L.cell; cv.height=L.rows*L.cell;
-    S={ L, grid:[], started:false, over:false, won:false, t:0, flags:0, opened:0, boom:null };
+    S={ L, grid:[], started:false, over:false, t:0, flags:0, opened:0, boom:null };
     for(let y=0;y<L.rows;y++){
         const row=[];
         for(let x=0;x<L.cols;x++) row.push({mine:false,open:false,flag:false,n:0});
@@ -147,7 +147,7 @@ function chord(x,y){
 function checkWin(){
     const L=S.L;
     if(S.opened===L.cols*L.rows-L.mines&&!S.over){
-        S.over=true; S.won=true;
+        S.over=true;
         const secs=Math.floor(S.t);
         const b=loadBest();
         if(b===null||secs<b){ try{ localStorage.setItem(bestKey(),String(secs)); }catch(e){} }

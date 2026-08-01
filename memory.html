@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#7dd3fc;letter-spacing:2px}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:16px;gap:14px}
+.bar{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;align-items:center}
+.chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:7px 15px;font-size:.85rem;font-variant-numeric:tabular-nums}
+.chip b{color:#7dd3fc}
+.seg{display:flex;gap:5px}
+.seg button,.btn{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#bbb;border-radius:18px;padding:7px 15px;cursor:pointer;font-family:inherit;font-size:.82rem}
+.seg button.on{background:rgba(125,211,252,.2);border-color:#7dd3fc;color:#bae6fd}
+.grid{display:grid;gap:10px}
+.card{position:relative;aspect-ratio:1;border:none;background:none;padding:0;cursor:pointer;perspective:600px}
+.inner{position:absolute;inset:0;transition:transform .32s;transform-style:preserve-3d}
+.card.up .inner,.card.done .inner{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:12px;display:flex;align-items:center;justify-content:center;
+ backface-visibility:hidden;-webkit-backface-visibility:hidden;font-size:2rem}
+.back{background:linear-gradient(140deg,#1e3a8a,#312e81);border:2px solid #3b5bd0}
+.back::after{content:'?';color:rgba(255,255,255,.28);font-weight:800;font-size:1.5rem}
+.front{background:#eef2ff;transform:rotateY(180deg);border:2px solid #c7d2fe}
+.card.done .front{background:#bbf7d0;border-color:#4ade80;opacity:.75}
+.overlay{position:fixed;inset:0;background:rgba(4,6,20,.85);display:flex;align-items:center;justify-content:center;z-index:60}
+.overlay.hidden{display:none}
+.obox{background:#0f2436;border:2px solid #7dd3fc;border-radius:18px;padding:32px 40px;text-align:center;max-width:380px}
+.obox h2{font-size:1.8rem;margin-bottom:8px;color:#7dd3fc;letter-spacing:2px}
+.obox p{color:#a8cfe4;margin-bottom:18px;line-height:1.6;font-size:.92rem}
+.btn.primary{background:linear-gradient(135deg,#7dd3fc,#0284c7);color:#04202e;border:none;font-weight:600;padding:11px 26px;border-radius:24px}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>MEMORY</h1></div>
+<div class="wrap">
+  <div class="bar">
+    <div class="seg" id="size"></div>
+    <button class="btn" id="newBtn">New Board</button>
+    <div class="chip">Moves <b id="moves">0</b></div>
+    <div class="chip">Pairs <b id="pairs">0</b></div>
+    <div class="chip">Time <b id="time">0:00</b></div>
+    <div class="chip">Best <b id="best">—</b></div>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+<div class="overlay hidden" id="ov"><div class="obox">
+  <h2 id="ovTitle">All Matched</h2><p id="ovMsg"></p>
+  <button class="btn primary" id="ovBtn">Play Again</button>
+</div></div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const ICONS=['🍄','🌵','🐙','🦊','🍉','⚓','🎈','🪐','🔥','🌙','🦋','🍀','🎲','🐝','⛄','🍒','🎺','🧿','🪁','🐬','🌻','🎩','🧊','🦉'];
+const SIZES={small:{c:4,r:3,label:'4 x 3'},medium:{c:6,r:4,label:'6 x 4'},large:{c:8,r:6,label:'8 x 6'}};
+let size='medium';
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function snd(f0,f1,d,t,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type=t||'sine';o.frequency.setValueAtTime(f0,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+d);
+g.gain.setValueAtTime(v||.04,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.02);}
+function bestKey(){return 'memoryBest_'+size;}
+function loadBest(){try{const v=localStorage.getItem(bestKey());return v?parseInt(v,10):null;}catch(e){return null;}}
+let cards,first,second,lock,moves,pairs,t,done,timer;
+function reset(){
+  const {c,r}=SIZES[size], n=c*r/2;
+  const pool=ICONS.slice(0,n);
+  cards=[...pool,...pool].map((ic,i)=>({ic,i,up:false,done:false}));
+  for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]];}
+  first=second=null; lock=false; moves=0; pairs=0; t=0; done=false;
+  const grid=document.getElementById('grid');
+  grid.style.gridTemplateColumns='repeat('+c+',1fr)';
+  grid.style.width=Math.min(92,c*11)+'vw';
+  grid.style.maxWidth=(c*96)+'px';
+  grid.innerHTML='';
+  cards.forEach((card,idx)=>{
+    const b=document.createElement('button');
+    b.className='card'; b.id='c'+idx;
+    b.innerHTML='<div class="inner"><div class="face back"></div><div class="face front">'+card.ic+'</div></div>';
+    b.addEventListener('click',()=>flip(idx));
+    grid.appendChild(b);
+  });
+  document.getElementById('ov').classList.add('hidden');
+  sync();
+}
+function flip(i){
+  if(lock||done) return;
+  const c=cards[i];
+  if(c.up||c.done) return;
+  actx();
+  c.up=true; document.getElementById('c'+i).classList.add('up');
+  snd(520,660,.06,'sine',.03);
+  if(!first){ first=i; return; }
+  second=i; moves++; lock=true; sync();
+  if(cards[first].ic===cards[second].ic){
+    setTimeout(()=>{
+      cards[first].done=cards[second].done=true;
+      document.getElementById('c'+first).classList.add('done');
+      document.getElementById('c'+second).classList.add('done');
+      pairs++; snd(720,1150,.16,'sine',.05);
+      first=second=null; lock=false; sync();
+      if(pairs===cards.length/2) win();
+    },300);
+  } else {
+    setTimeout(()=>{
+      cards[first].up=cards[second].up=false;
+      document.getElementById('c'+first).classList.remove('up');
+      document.getElementById('c'+second).classList.remove('up');
+      snd(260,190,.12,'square',.03);
+      first=second=null; lock=false;
+    },780);
+  }
+}
+function win(){
+  done=true;
+  const b=loadBest();
+  if(b===null||moves<b){ try{localStorage.setItem(bestKey(),String(moves));}catch(e){} }
+  document.getElementById('ovTitle').textContent='ALL MATCHED';
+  document.getElementById('ovMsg').innerHTML='Cleared the '+SIZES[size].label+' board in <b>'+moves+
+    '</b> moves and <b>'+fmt(t)+'</b>.'+((b!==null&&moves<b)?'<br>A new best.':(b!==null?'<br>Best '+b+' moves':''));
+  document.getElementById('ov').classList.remove('hidden');
+  for(let i=0;i<4;i++) setTimeout(()=>snd(600+i*150,1000+i*170,.2,'sine',.05),i*120);
+  sync();
+}
+function fmt(s){s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function sync(){
+  document.getElementById('moves').textContent=moves;
+  document.getElementById('pairs').textContent=pairs+' / '+(cards?cards.length/2:0);
+  document.getElementById('time').textContent=fmt(t);
+  const b=loadBest();
+  document.getElementById('best').textContent=b===null?'—':b+' moves';
+}
+function buildSizes(){
+  const h=document.getElementById('size'); h.innerHTML='';
+  for(const k of Object.keys(SIZES)){
+    const b=document.createElement('button');
+    b.textContent=SIZES[k].label; b.className=k===size?'on':'';
+    b.addEventListener('click',()=>{size=k;buildSizes();reset();});
+    h.appendChild(b);
+  }
+}
+document.getElementById('newBtn').addEventListener('click',()=>{actx();reset();});
+document.getElementById('ovBtn').addEventListener('click',()=>reset());
+buildSizes(); reset();
+timer=setInterval(()=>{ if(!done&&moves>0){ t++; sync(); } },1000);
+</script></body></html>

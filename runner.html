@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skyline Run - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#fda4af;letter-spacing:2px}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px}
+canvas{background:#1a1030;border-radius:12px;border:2px solid rgba(255,255,255,.08);display:block;max-width:96vw;height:auto;touch-action:none}
+.help{color:#7a7a9a;font-size:.8rem;text-align:center;line-height:1.6}
+kbd{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:1px 6px;font-size:.75rem;font-family:'SF Mono',monospace}
+.overlay{position:fixed;inset:0;background:rgba(4,6,20,.85);display:flex;align-items:center;justify-content:center;z-index:60}
+.overlay.hidden{display:none}
+.obox{background:#2a1220;border:2px solid #fda4af;border-radius:18px;padding:32px 40px;text-align:center;max-width:400px}
+.obox h2{font-size:1.85rem;margin-bottom:8px;color:#fda4af;letter-spacing:2px}
+.obox p{color:#e6bcc4;margin-bottom:18px;line-height:1.6;font-size:.92rem}
+.btn{padding:11px 26px;border:none;border-radius:24px;font-weight:600;cursor:pointer;font-family:inherit;font-size:.95rem;background:linear-gradient(135deg,#fda4af,#e11d48);color:#fff}
+.btn:hover{box-shadow:0 0 20px rgba(253,164,175,.5)}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>SKYLINE RUN</h1></div>
+<div class="wrap">
+  <canvas id="game" width="900" height="440"></canvas>
+  <p class="help"><kbd>Space</kbd>/<kbd>&uarr;</kbd>/<kbd>W</kbd> jump (tap again to double jump) &nbsp;&middot;&nbsp;
+     <kbd>&darr;</kbd>/<kbd>S</kbd> slide &nbsp;&middot;&nbsp; or tap the canvas<br>
+     Slide under the beams, jump the crates and gaps. It gets faster the longer you last.</p>
+</div>
+<div class="overlay" id="ov"><div class="obox">
+  <h2 id="ovTitle">SKYLINE RUN</h2><p id="ovMsg">Run as far as you can along the rooftops. Nothing stops except you.</p>
+  <button class="btn" id="ovBtn">Run</button>
+</div></div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const cv=document.getElementById('game'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+const GROUND=H-70;
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function snd(f0,f1,d,t,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type=t||'square';o.frequency.setValueAtTime(f0,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+d);
+g.gain.setValueAtTime(v||.04,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.02);}
+let best=0; try{best=parseInt(localStorage.getItem('runnerBest')||'0',10)||0;}catch(e){}
+let S;
+function reset(){
+  S={x:0,speed:330,p:{y:GROUND,vy:0,jumps:0,slide:0,h:52},obs:[],coins:[],parts:[],
+     dist:0,score:0,over:false,started:false,next:320,city:[],t:0};
+  for(let i=0;i<26;i++) S.city.push({x:i*90,w:50+Math.random()*60,h:60+Math.random()*150,d:Math.random()});
+}
+function spawn(){
+  const kinds=['crate','beam','gap','tall'];
+  const k=kinds[Math.floor(Math.random()*(S.dist>400?4:2))];
+  const x=W+40;
+  if(k==='crate') S.obs.push({k,x,y:GROUND-40,w:38,h:40});
+  else if(k==='tall') S.obs.push({k,x,y:GROUND-72,w:34,h:72});
+  else if(k==='beam') S.obs.push({k,x,y:GROUND-104,w:56,h:34});
+  else S.obs.push({k:'gap',x,y:GROUND,w:78+Math.random()*54,h:80});
+  if(Math.random()<0.6){
+    const cy = k==='beam' ? GROUND-38 : GROUND-96;
+    for(let i=0;i<3;i++) S.coins.push({x:x+120+i*32,y:cy,got:false,t:Math.random()*6});
+  }
+  S.next = 240 + Math.random()*220 - Math.min(90,S.dist/60);
+}
+function jump(){
+  if(!S.started||S.over) return;
+  const p=S.p;
+  if(p.jumps<2){ p.vy=p.jumps===0?-520:-440; p.jumps++; p.slide=0;
+    snd(p.jumps===1?420:520,760,.1,'square',.04); }
+}
+function slide(on){
+  if(!S.started||S.over) return;
+  if(on&&S.p.y>=GROUND-1){ S.p.slide=0.55; snd(260,180,.14,'sawtooth',.03); }
+}
+window.addEventListener('keydown',e=>{
+  if([' ','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
+  if(e.repeat) return;
+  if(e.key===' '||e.key==='ArrowUp'||e.key==='w'||e.key==='W'){ actx(); jump(); }
+  if(e.key==='ArrowDown'||e.key==='s'||e.key==='S'){ actx(); slide(true); }
+});
+cv.addEventListener('pointerdown',e=>{
+  actx();
+  const r=cv.getBoundingClientRect();
+  if((e.clientY-r.top)/r.height>0.72) slide(true); else jump();
+});
+function step(dt){
+  if(!S.started||S.over) return;
+  S.t+=dt;
+  S.speed=Math.min(760,330+S.dist*0.30);
+  const move=S.speed*dt;
+  S.x+=move; S.dist+=move/28;
+  const p=S.p;
+  p.slide=Math.max(0,p.slide-dt);
+  p.h = p.slide>0 ? 28 : 52;
+  p.vy+=1750*dt; p.y+=p.vy*dt;
+
+  // Ground, unless the runner is currently over a gap.
+  let onFloor=true;
+  for(const o of S.obs) if(o.k==='gap'&&120>o.x&&120<o.x+o.w) onFloor=false;
+  if(onFloor&&p.y>=GROUND){ p.y=GROUND; p.vy=0; p.jumps=0; }
+  if(!onFloor&&p.y>H+80){ die(); return; }
+
+  for(const o of S.obs) o.x-=move;
+  for(const c of S.coins){ c.x-=move; c.t+=dt; }
+  S.obs=S.obs.filter(o=>o.x+o.w>-60);
+  S.coins=S.coins.filter(c=>c.x>-40&&!c.got);
+  S.next-=move;
+  if(S.next<=0) spawn();
+
+  const px=120, pw=30;
+  const pTop=p.y-p.h, pBot=p.y;
+  for(const o of S.obs){
+    if(o.k==='gap') continue;
+    if(px+pw>o.x&&px<o.x+o.w&&pBot>o.y&&pTop<o.y+o.h){ die(); return; }
+  }
+  for(const c of S.coins){
+    if(!c.got&&Math.abs(c.x-(px+pw/2))<22&&Math.abs(c.y-(p.y-p.h/2))<30){
+      c.got=true; S.score+=25; snd(880,1500,.08,'sine',.045);
+      for(let i=0;i<5;i++) S.parts.push({x:c.x,y:c.y,vx:(Math.random()-.5)*160,vy:-Math.random()*160,
+        life:.4,max:.4,color:'#fbbf24'});
+    }
+  }
+  for(const q of S.parts){ q.x+=q.vx*dt; q.y+=q.vy*dt; q.vy+=500*dt; q.life-=dt; }
+  S.parts=S.parts.filter(q=>q.life>0);
+  for(const b of S.city){ b.x-=move*(0.12+b.d*0.2); if(b.x+b.w<0) b.x+=26*90; }
+}
+function die(){
+  S.over=true;
+  const total=Math.floor(S.dist)+S.score;
+  if(total>best){best=total;try{localStorage.setItem('runnerBest',String(best));}catch(e){}}
+  snd(240,60,.5,'sawtooth',.07);
+  document.getElementById('ovTitle').textContent='WIPEOUT';
+  document.getElementById('ovMsg').innerHTML='Distance <b>'+Math.floor(S.dist)+' m</b> &middot; coins <b>'+
+    (S.score/25)+'</b><br>Total <b>'+total.toLocaleString()+'</b> &middot; best <b>'+best.toLocaleString()+'</b>';
+  document.getElementById('ovBtn').textContent='Run Again';
+  document.getElementById('ov').classList.remove('hidden');
+}
+function draw(){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#2a1240'); g.addColorStop(0.6,'#42184a'); g.addColorStop(1,'#1a1030');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#ffd9a0';
+  ctx.beginPath(); ctx.arc(W-140,90,44,0,7); ctx.fill();
+  for(const b of S.city){
+    ctx.fillStyle='rgba(20,10,40,'+(0.45+b.d*0.4).toFixed(2)+')';
+    ctx.fillRect(b.x,GROUND-b.h,b.w,b.h);
+    ctx.fillStyle='rgba(255,220,150,.10)';
+    for(let wy=GROUND-b.h+10;wy<GROUND-12;wy+=18)
+      for(let wx=b.x+6;wx<b.x+b.w-8;wx+=14)
+        if((wx*7+wy*13)%5<2) ctx.fillRect(wx,wy,6,8);
+  }
+  // Rooftop with gaps punched out
+  ctx.fillStyle='#2c2140'; ctx.fillRect(0,GROUND,W,H-GROUND);
+  ctx.fillStyle='#3b2c56'; ctx.fillRect(0,GROUND,W,7);
+  for(const o of S.obs) if(o.k==='gap'){
+    const grad=ctx.createLinearGradient(0,GROUND,0,H);
+    grad.addColorStop(0,'#160c26'); grad.addColorStop(1,'#0a0616');
+    ctx.fillStyle=grad; ctx.fillRect(o.x,GROUND,o.w,H-GROUND);
+  }
+  for(const o of S.obs){
+    if(o.k==='gap') continue;
+    ctx.fillStyle=o.k==='beam'?'#f43f5e':'#a78bfa';
+    ctx.fillRect(o.x,o.y,o.w,o.h);
+    ctx.fillStyle='rgba(255,255,255,.22)'; ctx.fillRect(o.x,o.y,o.w,5);
+    if(o.k==='beam'){ ctx.fillStyle='rgba(0,0,0,.3)';
+      for(let i=6;i<o.w;i+=12) ctx.fillRect(o.x+i,o.y+6,4,o.h-12); }
+  }
+  for(const c of S.coins){
+    if(c.got) continue;
+    ctx.fillStyle='#fbbf24';
+    ctx.beginPath(); ctx.ellipse(c.x,c.y+Math.sin(c.t*4)*3,
+      7*Math.abs(Math.cos(c.t*3))+2,8,0,0,7); ctx.fill();
+  }
+  for(const q of S.parts){ ctx.globalAlpha=q.life/q.max; ctx.fillStyle=q.color;
+    ctx.fillRect(q.x-2,q.y-2,4,4); ctx.globalAlpha=1; }
+  // Runner
+  const p=S.p, px=120;
+  ctx.save(); ctx.translate(px,p.y);
+  ctx.fillStyle='rgba(0,0,0,.3)';
+  ctx.beginPath(); ctx.ellipse(15,2,20,5,0,0,7); ctx.fill();
+  ctx.fillStyle='#fda4af';
+  ctx.fillRect(0,-p.h,30,p.h);
+  ctx.fillStyle='#fecdd3'; ctx.fillRect(20,-p.h+6,8,8);
+  ctx.fillStyle='#4c0519';
+  const legPhase=Math.sin(S.t*18);
+  if(p.y>=GROUND-1&&p.slide<=0){
+    ctx.fillRect(4,-6,8,6+legPhase*4); ctx.fillRect(18,-6,8,6-legPhase*4);
+  } else if(p.slide>0){ ctx.fillRect(0,-8,30,8); }
+  ctx.restore();
+  ctx.fillStyle='#fff'; ctx.font='bold 22px "Segoe UI"'; ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText(Math.floor(S.dist)+' m',16,14);
+  ctx.font='12px "Segoe UI"'; ctx.fillStyle='#a89aba'; ctx.fillText('BEST '+best.toLocaleString(),16,40);
+  ctx.textAlign='right'; ctx.font='bold 18px "Segoe UI"'; ctx.fillStyle='#fbbf24';
+  ctx.fillText(String(S.score/25|0)+' coins',W-16,14);
+}
+document.getElementById('ovBtn').addEventListener('click',()=>{
+  actx(); reset(); S.started=true; document.getElementById('ov').classList.add('hidden');
+});
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;step(dt);draw();requestAnimationFrame(loop);}
+reset(); requestAnimationFrame(loop);
+</script></body></html>

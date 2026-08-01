@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Foundry - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#fb923c;letter-spacing:2px}
+.wrap{display:flex;gap:18px;justify-content:center;padding:18px;flex-wrap:wrap;align-items:flex-start;max-width:1150px;margin:0 auto}
+.col{flex:1;min-width:300px}
+.hero{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:22px;text-align:center;margin-bottom:14px}
+.hero .amt{font-size:2.6rem;font-weight:800;color:#fb923c;font-variant-numeric:tabular-nums;line-height:1.1}
+.hero .rate{color:#8a8aaa;font-size:.9rem;margin-top:4px}
+.forge{width:100%;height:150px;display:block;background:radial-gradient(ellipse at center,#3a1f0c,#160c05);
+ border-radius:14px;margin:12px 0;cursor:pointer}
+.tap{padding:12px 30px;border:none;border-radius:26px;font-weight:700;font-size:1rem;cursor:pointer;
+ font-family:inherit;background:linear-gradient(135deg,#fb923c,#c2410c);color:#fff;width:100%}
+.tap:active{transform:scale(.98)}
+h3{font-size:.68rem;letter-spacing:2px;color:#7a7a9a;text-transform:uppercase;margin:14px 0 8px}
+.item{width:100%;text-align:left;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);
+ color:#ddd;border-radius:12px;padding:11px 13px;margin-bottom:8px;cursor:pointer;font-family:inherit;display:block}
+.item:hover:not(:disabled){background:rgba(255,255,255,.09)}
+.item:disabled{opacity:.42;cursor:not-allowed}
+.item .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.item .nm{font-weight:600;font-size:.92rem}
+.item .ct{color:#4ade80;font-variant-numeric:tabular-nums;font-size:.86rem;white-space:nowrap}
+.item .ct.no{color:#f87171}
+.item .ds{font-size:.75rem;color:#8a8aaa;margin-top:3px;line-height:1.45}
+.item .own{font-size:.75rem;color:#fb923c;font-weight:700}
+.stat{display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.stat b{font-variant-numeric:tabular-nums}
+.pbtn{padding:10px 20px;border:none;border-radius:22px;font-weight:700;cursor:pointer;font-family:inherit;
+ background:linear-gradient(135deg,#c084fc,#7c3aed);color:#fff;width:100%;margin-top:10px}
+.pbtn:disabled{opacity:.4;cursor:not-allowed}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>FOUNDRY</h1></div>
+<div class="wrap">
+  <div class="col">
+    <div class="hero">
+      <div class="amt" id="amt">0</div>
+      <div class="rate" id="rate">0 ingots / sec</div>
+      <canvas class="forge" id="forge" width="600" height="300"></canvas>
+      <button class="tap" id="tapBtn">Strike the anvil</button>
+      <div style="margin-top:14px;text-align:left">
+        <div class="stat"><span>Per strike</span><b id="perTap">1</b></div>
+        <div class="stat"><span>Total forged</span><b id="total">0</b></div>
+        <div class="stat"><span>Strikes</span><b id="taps">0</b></div>
+        <div class="stat" style="border:none"><span>Prestige bonus</span><b id="pbonus">+0%</b></div>
+      </div>
+      <button class="pbtn" id="prestige">Reforge</button>
+      <div style="font-size:.74rem;color:#7a7a9a;margin-top:7px;line-height:1.5" id="pinfo"></div>
+    </div>
+  </div>
+  <div class="col">
+    <h3>Workers</h3><div id="gens"></div>
+    <h3>Upgrades</h3><div id="ups"></div>
+  </div>
+</div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const fc=document.getElementById('forge'),fx=fc.getContext('2d');
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function snd(f0,f1,d,t,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type=t||'square';o.frequency.setValueAtTime(f0,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+d);
+g.gain.setValueAtTime(v||.03,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.02);}
+
+const GENS=[
+ {id:'apprentice',name:'Apprentice',base:15,   rate:0.4,  desc:'Hammers slowly but never complains.'},
+ {id:'smith',     name:'Smith',     base:110,  rate:2.6,  desc:'Knows which end of the tongs is which.'},
+ {id:'bellows',   name:'Bellows Crew',base:900,rate:14,   desc:'Keeps the fire hot enough to matter.'},
+ {id:'waterwheel',name:'Water Wheel',base:7000,rate:80,   desc:'Trip hammers that run all night.'},
+ {id:'blast',     name:'Blast Furnace',base:52000,rate:420,desc:'Industrial scale. The valley glows.'},
+ {id:'arc',       name:'Arc Smelter',base:400000,rate:2600,desc:'Lightning in a crucible.'},
+];
+const UPS=[
+ {id:'hammer', name:'Heavier Hammer', cost:60,    desc:'Each strike is worth 3x as much.', tap:3},
+ {id:'grip',   name:'Padded Grip',    cost:1200,  desc:'Another 4x on every strike.',      tap:4},
+ {id:'temper', name:'Tempered Steel', cost:9000,  desc:'All workers produce 2x.',          all:2},
+ {id:'flux',   name:'Better Flux',    cost:75000, desc:'All workers produce another 2.5x.',all:2.5},
+ {id:'auto',   name:'Trip Linkage',   cost:26000, desc:'Strikes the anvil twice a second by itself.', auto:2},
+ {id:'crucible',name:'Deep Crucible', cost:600000,desc:'All workers produce another 3x.',  all:3},
+];
+const KEY='foundrySave';
+let S;
+function fresh(){ return {n:0,total:0,taps:0,gens:{},ups:{},prestige:0,lifetime:0}; }
+function load(){
+  S=fresh();
+  try{ const raw=localStorage.getItem(KEY); if(raw) Object.assign(S,JSON.parse(raw)); }catch(e){}
+  if(!S.gens) S.gens={}; if(!S.ups) S.ups={};
+}
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
+function fmt(n){
+  if(n<1000) return (Math.floor(n*10)/10).toString().replace(/\.0$/,'');
+  const u=['','k','M','B','T','Qa','Qi','Sx','Sp'];
+  let i=0; while(n>=1000&&i<u.length-1){ n/=1000; i++; }
+  return n.toFixed(n<10?2:n<100?1:0)+u[i];
+}
+function genCost(g){ return Math.ceil(g.base*Math.pow(1.15,S.gens[g.id]||0)); }
+function prestigeMult(){ return 1+S.prestige*0.25; }
+function allMult(){
+  let m=prestigeMult();
+  for(const u of UPS) if(S.ups[u.id]&&u.all) m*=u.all;
+  return m;
+}
+function tapValue(){
+  let v=1;
+  for(const u of UPS) if(S.ups[u.id]&&u.tap) v*=u.tap;
+  return v*prestigeMult();
+}
+function perSec(){
+  let r=0;
+  for(const g of GENS) r+=(S.gens[g.id]||0)*g.rate;
+  return r*allMult();
+}
+function pendingPrestige(){ return Math.floor(Math.sqrt(S.lifetime/1e6)); }
+function strike(manual){
+  const v=tapValue();
+  S.n+=v; S.total+=v; S.lifetime+=v;
+  if(manual){ S.taps++; snd(300+Math.random()*90,140,.09,'square',.035); sparks(); }
+}
+let sparkList=[];
+function sparks(){
+  for(let i=0;i<14;i++) sparkList.push({x:300,y:190,vx:(Math.random()-.5)*260,vy:-Math.random()*220-40,
+    life:.5+Math.random()*.3,max:.8});
+}
+document.getElementById('tapBtn').addEventListener('click',()=>{actx();strike(true);sync();});
+fc.addEventListener('click',()=>{actx();strike(true);sync();});
+document.getElementById('prestige').addEventListener('click',()=>{
+  const p=pendingPrestige();
+  if(p<=S.prestige) return;
+  if(!confirm('Reforge for '+(p-S.prestige)+' more prestige? Ingots, workers and upgrades reset; the bonus is permanent.')) return;
+  S={...fresh(),prestige:p,lifetime:S.lifetime};
+  snd(200,900,.5,'sine',.06); save(); build(); sync();
+});
+function build(){
+  const gh=document.getElementById('gens'); gh.innerHTML='';
+  for(const g of GENS){
+    const b=document.createElement('button'); b.className='item'; b.id='g_'+g.id;
+    b.addEventListener('click',()=>{
+      const c=genCost(g);
+      if(S.n<c) return;
+      S.n-=c; S.gens[g.id]=(S.gens[g.id]||0)+1;
+      snd(520,700,.08,'sine',.04); save(); sync();
+    });
+    gh.appendChild(b);
+  }
+  const uh=document.getElementById('ups'); uh.innerHTML='';
+  for(const u of UPS){
+    const b=document.createElement('button'); b.className='item'; b.id='u_'+u.id;
+    b.addEventListener('click',()=>{
+      if(S.ups[u.id]||S.n<u.cost) return;
+      S.n-=u.cost; S.ups[u.id]=true;
+      snd(700,1200,.16,'sine',.05); save(); sync();
+    });
+    uh.appendChild(b);
+  }
+}
+function sync(){
+  document.getElementById('amt').textContent=fmt(S.n);
+  document.getElementById('rate').textContent=fmt(perSec())+' ingots / sec';
+  document.getElementById('perTap').textContent=fmt(tapValue());
+  document.getElementById('total').textContent=fmt(S.total);
+  document.getElementById('taps').textContent=S.taps.toLocaleString();
+  document.getElementById('pbonus').textContent='+'+Math.round((prestigeMult()-1)*100)+'%';
+  for(const g of GENS){
+    const b=document.getElementById('g_'+g.id); if(!b) continue;
+    const c=genCost(g), own=S.gens[g.id]||0;
+    const visible = own>0 || S.total>=g.base*0.35;
+    b.style.display=visible?'block':'none';
+    b.disabled=S.n<c;
+    b.innerHTML='<span class="top"><span class="nm">'+g.name+
+      (own?' <span class="own">x'+own+'</span>':'')+'</span>'+
+      '<span class="ct'+(S.n<c?' no':'')+'">'+fmt(c)+'</span></span>'+
+      '<span class="ds">'+g.desc+' &middot; '+fmt(g.rate*allMult())+'/s each</span>';
+  }
+  for(const u of UPS){
+    const b=document.getElementById('u_'+u.id); if(!b) continue;
+    const owned=!!S.ups[u.id];
+    b.style.display=(owned||S.total>=u.cost*0.3)?'block':'none';
+    b.disabled=owned||S.n<u.cost;
+    b.innerHTML='<span class="top"><span class="nm">'+u.name+'</span>'+
+      '<span class="ct'+(owned?'':(S.n<u.cost?' no':''))+'">'+(owned?'owned':fmt(u.cost))+'</span></span>'+
+      '<span class="ds">'+u.desc+'</span>';
+  }
+  const p=pendingPrestige(), gain=p-S.prestige;
+  const pb=document.getElementById('prestige');
+  pb.disabled=gain<=0;
+  pb.textContent=gain>0?('Reforge for +'+gain+' prestige'):'Reforge';
+  document.getElementById('pinfo').textContent=gain>0
+    ? 'Each prestige adds a permanent +25% to everything.'
+    : 'Reach '+fmt(Math.pow(S.prestige+1,2)*1e6)+' lifetime ingots to reforge. You have '+fmt(S.lifetime)+'.';
+}
+function drawForge(dt){
+  fx.clearRect(0,0,600,300);
+  const grd=fx.createRadialGradient(300,230,10,300,230,190);
+  grd.addColorStop(0,'rgba(255,160,60,.55)'); grd.addColorStop(1,'rgba(0,0,0,0)');
+  fx.fillStyle=grd; fx.fillRect(0,0,600,300);
+  fx.fillStyle='#3b2a1c'; fx.fillRect(180,215,240,60);
+  fx.fillStyle='#241a11'; fx.fillRect(200,255,200,30);
+  fx.fillStyle='#c2410c';
+  fx.beginPath(); fx.ellipse(300,215,86,20,0,0,7); fx.fill();
+  fx.fillStyle='#fb923c';
+  fx.beginPath(); fx.ellipse(300,213,60+Math.sin(Date.now()/240)*7,13,0,0,7); fx.fill();
+  fx.fillStyle='#fde68a';
+  fx.beginPath(); fx.ellipse(300,211,28+Math.sin(Date.now()/160)*5,7,0,0,7); fx.fill();
+  for(const s of sparkList){
+    s.x+=s.vx*dt; s.y+=s.vy*dt; s.vy+=520*dt; s.life-=dt;
+    fx.globalAlpha=Math.max(0,s.life/s.max);
+    fx.fillStyle=s.life>.45?'#fff7ed':'#fb923c';
+    fx.fillRect(s.x-2,s.y-2,4,4);
+    fx.globalAlpha=1;
+  }
+  sparkList=sparkList.filter(s=>s.life>0);
+}
+load(); build(); sync();
+let last=performance.now(), acc=0, autoAcc=0;
+function loop(now){
+  const dt=Math.min(.25,(now-last)/1000); last=now;
+  const gain=perSec()*dt;
+  if(gain>0){ S.n+=gain; S.total+=gain; S.lifetime+=gain; }
+  if(S.ups.auto){
+    autoAcc+=dt;
+    const per=1/UPS.find(u=>u.id==='auto').auto;
+    while(autoAcc>=per){ autoAcc-=per; strike(false); }
+  }
+  acc+=dt;
+  if(acc>0.12){ acc=0; sync(); }
+  drawForge(dt);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+setInterval(save,5000);
+window.addEventListener('beforeunload',save);
+</script></body></html>

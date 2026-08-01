@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stacker - Simboland</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a2e;color:#fff;font-family:'Segoe UI',Tahoma,sans-serif;min-height:100vh;user-select:none;-webkit-user-select:none}
+.header{width:100%;padding:12px 24px;display:flex;align-items:center;gap:20px;background:rgba(0,0,0,.35);border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}
+.header a{color:#ffe066;text-decoration:none;font-size:.85rem}.header a:hover{color:#fff}
+.header h1{font-size:1.25rem;color:#f0abfc;letter-spacing:2px}
+.wrap{display:flex;flex-direction:column;align-items:center;padding:16px;gap:12px}
+canvas{background:#120c1e;border-radius:12px;border:2px solid rgba(255,255,255,.08);display:block;max-width:96vw;height:auto;cursor:pointer;touch-action:none}
+.help{color:#7a7a9a;font-size:.8rem;text-align:center;line-height:1.6}
+kbd{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:1px 6px;font-size:.75rem;font-family:'SF Mono',monospace}
+.overlay{position:fixed;inset:0;background:rgba(4,6,20,.85);display:flex;align-items:center;justify-content:center;z-index:60}
+.overlay.hidden{display:none}
+.obox{background:#25113a;border:2px solid #f0abfc;border-radius:18px;padding:32px 40px;text-align:center;max-width:380px}
+.obox h2{font-size:1.8rem;margin-bottom:8px;color:#f0abfc;letter-spacing:2px}
+.obox p{color:#d6b6e0;margin-bottom:18px;line-height:1.6;font-size:.92rem}
+.btn{padding:11px 26px;border:none;border-radius:24px;font-weight:600;cursor:pointer;font-family:inherit;font-size:.95rem;background:linear-gradient(135deg,#f0abfc,#a21caf);color:#fff}
+.btn:hover{box-shadow:0 0 20px rgba(240,171,252,.5)}
+footer{text-align:center;padding:20px;color:rgba(255,255,255,.22);font-size:.8rem}
+</style></head>
+<body>
+<div class="header"><a href="index.html">&larr; Simboland</a><h1>STACKER</h1></div>
+<div class="wrap">
+  <canvas id="game" width="480" height="620"></canvas>
+  <p class="help"><kbd>Space</kbd> or click to drop the moving block.<br>
+     Anything hanging over the edge is sliced off. Land it dead centre for a perfect, and the tower grows back.</p>
+</div>
+<div class="overlay" id="ov"><div class="obox">
+  <h2 id="ovTitle">STACKER</h2><p id="ovMsg">Stack them straight. Every miss makes the next one narrower.</p>
+  <button class="btn" id="ovBtn">Start</button>
+</div></div>
+<footer><p>&copy; 2026 Simboland</p></footer>
+<script>
+const cv=document.getElementById('game'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+const BH=26, BASE_W=210;
+let ac=null;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(C)ac=new C();}return ac;}
+function snd(f0,f1,d,t,v){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+o.type=t||'sine';o.frequency.setValueAtTime(f0,a.currentTime);
+o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+d);
+g.gain.setValueAtTime(v||.04,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);
+o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+.02);}
+let best=0; try{best=parseInt(localStorage.getItem('stackerBest')||'0',10)||0;}catch(e){}
+let S;
+function reset(){
+  S={stack:[{x:(W-BASE_W)/2,w:BASE_W}],cur:null,dir:1,speed:150,over:false,started:false,
+     scroll:0,chips:[],perfects:0,combo:0,flash:0};
+  next();
+}
+function next(){
+  const top=S.stack[S.stack.length-1];
+  S.speed=Math.min(430,150+S.stack.length*11);
+  S.cur={x:S.dir>0?-top.w:W,w:top.w};
+  S.dir*=-1;
+}
+function hue(i){ return 'hsl('+((i*13+200)%360)+',68%,'+(52+(i%3)*6)+'%)'; }
+function place(){
+  if(!S.started||S.over||!S.cur) return;
+  const top=S.stack[S.stack.length-1];
+  const left=Math.max(S.cur.x,top.x);
+  const right=Math.min(S.cur.x+S.cur.w,top.x+top.w);
+  const w=right-left;
+  if(w<=2){ die(); return; }
+  const off=Math.abs(S.cur.x-top.x);
+  if(off<5){
+    // Perfect: keep the width and give a little back.
+    S.perfects++; S.combo++;
+    const grow=Math.min(top.w+12,BASE_W);
+    S.stack.push({x:top.x-(grow-top.w)/2,w:grow});
+    snd(700+Math.min(700,S.combo*70),1400,.14,'sine',.055);
+    S.flash=0.35;
+  } else {
+    S.combo=0;
+    S.stack.push({x:left,w});
+    // The overhang falls away.
+    if(S.cur.x<top.x) S.chips.push({x:S.cur.x,w:top.x-S.cur.x,y:0,vy:0,vr:-2});
+    else S.chips.push({x:right,w:S.cur.x+S.cur.w-right,y:0,vy:0,vr:2});
+    snd(320,200,.1,'square',.04);
+  }
+  S.scroll+=BH;
+  next();
+}
+function die(){
+  S.over=true;
+  const n=S.stack.length-1;
+  if(n>best){best=n;try{localStorage.setItem('stackerBest',String(best));}catch(e){}}
+  snd(260,70,.5,'sawtooth',.06);
+  document.getElementById('ovTitle').textContent='TOPPLED';
+  document.getElementById('ovMsg').innerHTML='Height <b>'+n+'</b> &middot; perfects <b>'+S.perfects+
+    '</b><br>Best <b>'+best+'</b>';
+  document.getElementById('ovBtn').textContent='Again';
+  document.getElementById('ov').classList.remove('hidden');
+}
+window.addEventListener('keydown',e=>{ if(e.key===' '){e.preventDefault();actx();place();} });
+cv.addEventListener('pointerdown',()=>{actx();place();});
+function step(dt){
+  if(!S.started||S.over) return;
+  if(S.flash>0) S.flash-=dt;
+  const c=S.cur;
+  c.x+=S.dir*S.speed*dt;
+  if(c.x<-c.w){ c.x=-c.w; S.dir=1; }
+  if(c.x>W){ c.x=W; S.dir=-1; }
+  for(const ch of S.chips){ ch.vy+=1500*dt; ch.y+=ch.vy*dt; }
+  S.chips=S.chips.filter(ch=>ch.y<H+120);
+}
+function draw(){
+  ctx.fillStyle='#120c1e'; ctx.fillRect(0,0,W,H);
+  if(S.flash>0){ ctx.fillStyle='rgba(240,171,252,'+(S.flash/0.35*0.14).toFixed(2)+')'; ctx.fillRect(0,0,W,H); }
+  const baseY=H-70;
+  const view=Math.max(0,S.scroll-(H-240));
+  for(let i=0;i<S.stack.length;i++){
+    const b=S.stack[i];
+    const y=baseY-i*BH+view;
+    if(y<-BH||y>H) continue;
+    ctx.fillStyle=hue(i); ctx.fillRect(b.x,y,b.w,BH-2);
+    ctx.fillStyle='rgba(255,255,255,.22)'; ctx.fillRect(b.x,y,b.w,5);
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(b.x,y+BH-6,b.w,4);
+  }
+  if(S.cur&&!S.over){
+    const y=baseY-S.stack.length*BH+view;
+    ctx.fillStyle=hue(S.stack.length);
+    ctx.fillRect(S.cur.x,y,S.cur.w,BH-2);
+    ctx.fillStyle='rgba(255,255,255,.3)'; ctx.fillRect(S.cur.x,y,S.cur.w,5);
+    const top=S.stack[S.stack.length-1];
+    ctx.strokeStyle='rgba(255,255,255,.18)'; ctx.setLineDash([4,6]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(top.x,0); ctx.lineTo(top.x,H);
+    ctx.moveTo(top.x+top.w,0); ctx.lineTo(top.x+top.w,H); ctx.stroke(); ctx.setLineDash([]);
+  }
+  for(const ch of S.chips){
+    const y=baseY-(S.stack.length-1)*BH+view+ch.y;
+    ctx.fillStyle='rgba(240,171,252,.55)'; ctx.fillRect(ch.x,y,ch.w,BH-2);
+  }
+  ctx.fillStyle='#fff'; ctx.font='bold 30px "Segoe UI"'; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText(String(S.stack.length-1),W/2,18);
+  ctx.font='11px "Segoe UI"'; ctx.fillStyle='#8a7a9a'; ctx.fillText('HEIGHT',W/2,52);
+  ctx.textAlign='left'; ctx.fillText('BEST '+best,14,18);
+  if(S.combo>1){ ctx.textAlign='right'; ctx.fillStyle='#f0abfc'; ctx.font='bold 15px "Segoe UI"';
+    ctx.fillText(S.combo+'x perfect',W-14,18); }
+}
+document.getElementById('ovBtn').addEventListener('click',()=>{
+  actx(); reset(); S.started=true; document.getElementById('ov').classList.add('hidden');
+});
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;step(dt);draw();requestAnimationFrame(loop);}
+reset(); requestAnimationFrame(loop);
+</script></body></html>
