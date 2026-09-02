@@ -56,6 +56,10 @@
             display: none;
             max-width: 800px;
             margin: 20px auto;
+            /* The iframe is sized at height:100%, which resolves against this box. Without an
+               explicit height here that computes to zero and every game renders invisible. */
+            height: 80vh;
+            min-height: 480px;
         }
 
         .back-button {
