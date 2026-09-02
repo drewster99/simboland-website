@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Game</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            margin: 0;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #pong-container {
+            width: 800px;
+            height: 400px;
+            background: #000;
+            position: relative;
+            margin: 20px auto;
+            border: 2px solid #fff;
+        }
+        .paddle {
+            width: 10px;
+            height: 60px;
+            background: white;
+            position: absolute;
+            top: 170px;
+        }
+        #player-paddle {
+            left: 10px;
+        }
+        #cpu-paddle {
+            right: 10px;
+        }
+        .ball {
+            width: 10px;
+            height: 10px;
+            background: white;
+            position: absolute;
+            border-radius: 50%;
+            top: 195px;
+            left: 395px;
+        }
+        #pong-score {
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="pong-score">0 - 0</div>
+    <div id="pong-container">
+        <div id="player-paddle" class="paddle"></div>
+        <div id="cpu-paddle" class="paddle"></div>
+        <div class="ball"></div>
+    </div>
+
+    <script>
+        const container = document.getElementById('pong-container');
+        const ball = document.querySelector('.ball');
+        const playerPaddle = document.getElementById('player-paddle');
+        const cpuPaddle = document.getElementById('cpu-paddle');
+        const scoreDisplay = document.getElementById('pong-score');
+
+        let ballX = 395;
+        let ballY = 195;
+        let ballSpeedX = 5;
+        let ballSpeedY = 5;
+        let playerScore = 0;
+        let cpuScore = 0;
+        let playerY = 170;
+        let cpuY = 170;
+        const paddleSpeed = 8;
+        let keys = {};
+
+        document.addEventListener('keydown', e => keys[e.key] = true);
+        document.addEventListener('keyup', e => keys[e.key] = false);
+
+        function updateGame() {
+            // Move player paddle
+            if (keys['ArrowUp'] && playerY > 0) {
+                playerY -= paddleSpeed;
+            }
+            if (keys['ArrowDown'] && playerY < container.offsetHeight - playerPaddle.offsetHeight) {
+                playerY += paddleSpeed;
+            }
+
+            // Move CPU paddle (with slight delay for fairness)
+            const cpuCenter = cpuY + cpuPaddle.offsetHeight / 2;
+            const ballCenter = ballY + ball.offsetHeight / 2;
+            if (ballCenter < cpuCenter - 10 && cpuY > 0) {
+                cpuY -= paddleSpeed * 0.6;
+            }
+            if (ballCenter > cpuCenter + 10 && cpuY < container.offsetHeight - cpuPaddle.offsetHeight) {
+                cpuY += paddleSpeed * 0.6;
+            }
+
+            // Move ball
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+
+            // Ball collision with top and bottom
+            if (ballY <= 0 || ballY >= container.offsetHeight - ball.offsetHeight) {
+                ballSpeedY = -ballSpeedY;
+            }
+
+            // Ball collision with paddles
+            if (ballX <= 20 && ballY + ball.offsetHeight >= playerY && ballY <= playerY + playerPaddle.offsetHeight) {
+                ballSpeedX = -ballSpeedX;
+                const diff = (ballY + ball.offsetHeight/2) - (playerY + playerPaddle.offsetHeight/2);
+                ballSpeedY = diff * 0.2;
+            }
+
+            if (ballX >= container.offsetWidth - 20 && ballY + ball.offsetHeight >= cpuY && ballY <= cpuY + cpuPaddle.offsetHeight) {
+                ballSpeedX = -ballSpeedX;
+                const diff = (ballY + ball.offsetHeight/2) - (cpuY + cpuPaddle.offsetHeight/2);
+                ballSpeedY = diff * 0.2;
+            }
+
+            // Score points
+            if (ballX <= 0) {
+                cpuScore++;
+                resetBall();
+            } else if (ballX >= container.offsetWidth - ball.offsetWidth) {
+                playerScore++;
+                resetBall();
+            }
+
+            // Update positions
+            ball.style.left = `${ballX}px`;
+            ball.style.top = `${ballY}px`;
+            playerPaddle.style.top = `${playerY}px`;
+            cpuPaddle.style.top = `${cpuY}px`;
+            scoreDisplay.textContent = `${playerScore} - ${cpuScore}`;
+
+            requestAnimationFrame(updateGame);
+        }
+
+        function resetBall() {
+            ballX = 395;
+            ballY = 195;
+            ballSpeedX = Math.random() > 0.5 ? 5 : -5;
+            ballSpeedY = (Math.random() - 0.5) * 10;
+        }
+
+        updateGame();
+    </script>
+</body>
+</html> 

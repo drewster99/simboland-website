@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie Defense</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            margin: 0;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #zombie-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background-color: #2a2a2a;
+            border: 2px solid #333;
+            overflow: hidden;
+            margin: 20px auto;
+            cursor: crosshair;
+        }
+        .player {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #4CAF50;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .zombie {
+            position: absolute;
+            width: 25px;
+            height: 25px;
+            background-color: #f44336;
+            border-radius: 4px;
+            transform: translate(-50%, -50%);
+        }
+        .bullet {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background-color: #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #score, #wave, #ammo {
+            font-size: 24px;
+            margin: 10px;
+        }
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <h1>Zombie Defense</h1>
+    <div id="score">Score: 0</div>
+    <div id="wave">Wave: 1</div>
+    <div id="ammo">Ammo: 30</div>
+    <div id="zombie-container">
+        <div class="player"></div>
+        <div class="game-over">
+            Game Over!<br>
+            Click to Restart
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('zombie-container');
+        const player = document.querySelector('.player');
+        const gameOverScreen = document.querySelector('.game-over');
+        const scoreDisplay = document.getElementById('score');
+        const waveDisplay = document.getElementById('wave');
+        const ammoDisplay = document.getElementById('ammo');
+
+        let score = 0;
+        let wave = 1;
+        let ammo = 30;
+        let zombies = [];
+        let bullets = [];
+        let gameLoop;
+        let spawnLoop;
+        let mouseX = 400;
+        let mouseY = 200;
+        let playerX = 400;
+        let playerY = 200;
+        let gameOver = false;
+
+        // Initialize game
+        function initGame() {
+            // Reset variables
+            score = 0;
+            wave = 1;
+            ammo = 30;
+            zombies = [];
+            bullets = [];
+            playerX = 400;
+            playerY = 200;
+            gameOver = false;
+
+            // Clear container
+            container.innerHTML = `
+                <div class="player"></div>
+                <div class="game-over">Game Over!<br>Click to Restart</div>
+            `;
+
+            // Reset references
+            player = document.querySelector('.player');
+            gameOverScreen = document.querySelector('.game-over');
+
+            // Update displays
+            updateDisplays();
+
+            // Hide game over screen
+            gameOverScreen.style.display = 'none';
+
+            // Start game loops
+            if (gameLoop) clearInterval(gameLoop);
+            if (spawnLoop) clearInterval(spawnLoop);
+            
+            gameLoop = setInterval(updateGame, 1000/60);
+            spawnLoop = setInterval(spawnZombie, 2000);
+        }
+
+        function updateDisplays() {
+            scoreDisplay.textContent = `Score: ${score}`;
+            waveDisplay.textContent = `Wave: ${wave}`;
+            ammoDisplay.textContent = `Ammo: ${ammo}`;
+        }
+
+        function spawnZombie() {
+            if (gameOver) return;
+
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+
+            switch(side) {
+                case 0: // top
+                    x = Math.random() * container.offsetWidth;
+                    y = -20;
+                    break;
+                case 1: // right
+                    x = container.offsetWidth + 20;
+                    y = Math.random() * container.offsetHeight;
+                    break;
+                case 2: // bottom
+                    x = Math.random() * container.offsetWidth;
+                    y = container.offsetHeight + 20;
+                    break;
+                case 3: // left
+                    x = -20;
+                    y = Math.random() * container.offsetHeight;
+                    break;
+            }
+
+            const zombie = document.createElement('div');
+            zombie.className = 'zombie';
+            zombie.style.left = x + 'px';
+            zombie.style.top = y + 'px';
+            container.appendChild(zombie);
+
+            zombies.push({
+                element: zombie,
+                x: x,
+                y: y,
+                speed: 1 + Math.random() * 0.5 + (wave * 0.1)
+            });
+        }
+
+        function shoot(targetX, targetY) {
+            if (gameOver || ammo <= 0) return;
+
+            const angle = Math.atan2(targetY - playerY, targetX - playerX);
+            const bullet = document.createElement('div');
+            bullet.className = 'bullet';
+            bullet.style.left = playerX + 'px';
+            bullet.style.top = playerY + 'px';
+            container.appendChild(bullet);
+
+            bullets.push({
+                element: bullet,
+                x: playerX,
+                y: playerY,
+                speed: 10,
+                angle: angle
+            });
+
+            ammo--;
+            updateDisplays();
+        }
+
+        function updateGame() {
+            if (gameOver) return;
+
+            // Update player position
+            const dx = mouseX - playerX;
+            const dy = mouseY - playerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 5) {
+                playerX += (dx / distance) * 5;
+                playerY += (dy / distance) * 5;
+                player.style.left = playerX + 'px';
+                player.style.top = playerY + 'px';
+            }
+
+            // Update bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                bullet.x += Math.cos(bullet.angle) * bullet.speed;
+                bullet.y += Math.sin(bullet.angle) * bullet.speed;
+                bullet.element.style.left = bullet.x + 'px';
+                bullet.element.style.top = bullet.y + 'px';
+
+                // Remove bullets that are off screen
+                if (bullet.x < 0 || bullet.x > container.offsetWidth ||
+                    bullet.y < 0 || bullet.y > container.offsetHeight) {
+                    container.removeChild(bullet.element);
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update zombies
+            for (let i = zombies.length - 1; i >= 0; i--) {
+                const zombie = zombies[i];
+                const angle = Math.atan2(playerY - zombie.y, playerX - zombie.x);
+                zombie.x += Math.cos(angle) * zombie.speed;
+                zombie.y += Math.sin(angle) * zombie.speed;
+                zombie.element.style.left = zombie.x + 'px';
+                zombie.element.style.top = zombie.y + 'px';
+
+                // Check collision with player
+                const dx = playerX - zombie.x;
+                const dy = playerY - zombie.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 20) {
+                    endGame();
+                    return;
+                }
+
+                // Check collision with bullets
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    const bullet = bullets[j];
+                    const bdx = bullet.x - zombie.x;
+                    const bdy = bullet.y - zombie.y;
+                    const bulletDistance = Math.sqrt(bdx * bdx + bdy * bdy);
+
+                    if (bulletDistance < 15) {
+                        // Remove zombie and bullet
+                        container.removeChild(zombie.element);
+                        container.removeChild(bullet.element);
+                        zombies.splice(i, 1);
+                        bullets.splice(j, 1);
+                        
+                        // Update score
+                        score += 10;
+                        if (score % 100 === 0) {
+                            wave++;
+                            ammo += 20;
+                            updateDisplays();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        function endGame() {
+            gameOver = true;
+            clearInterval(gameLoop);
+            clearInterval(spawnLoop);
+            gameOverScreen.style.display = 'block';
+        }
+
+        // Event Listeners
+        container.addEventListener('mousemove', e => {
+            const rect = container.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        container.addEventListener('click', e => {
+            if (gameOver) {
+                initGame();
+            } else {
+                const rect = container.getBoundingClientRect();
+                shoot(e.clientX - rect.left, e.clientY - rect.top);
+            }
+        });
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html> 

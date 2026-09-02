@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade Games</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            margin: 0;
+            color: white;
+        }
+
+        #menu-container {
+            max-width: 1200px;
+            margin: 50px auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            padding: 20px;
+        }
+
+        .game-card {
+            background: linear-gradient(145deg, #2a2a2a, #333);
+            border-radius: 15px;
+            padding: 20px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+
+        .game-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .game-title {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+
+        .game-description {
+            font-size: 14px;
+            color: #bbb;
+        }
+
+        #game-container {
+            display: none;
+            max-width: 800px;
+            margin: 20px auto;
+        }
+
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+
+        .back-button:hover {
+            background-color: #45a049;
+        }
+
+        .category-header {
+            grid-column: 1 / -1;
+            color: #4CAF50;
+            font-size: 24px;
+            margin: 20px 0 10px;
+            text-align: left;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 5px;
+        }
+
+        .turret {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(45deg, #444, #666);
+            border-radius: 50%;
+            border: 2px solid #888;
+        }
+        .turret::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 6px;
+            background: #888;
+            transform-origin: left center;
+            transform: translate(0, -50%);
+        }
+
+        .zombie {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-origin: center;
+            user-select: none;
+        }
+        .player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #4CAF50;
+            border-radius: 50%;
+            transform-origin: center;
+            border: 2px solid #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .bullet {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #ff0;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #ff0;
+        }
+        .blood-splatter {
+            position: absolute;
+            color: #8B0000;
+            font-size: 20px;
+            animation: fade-out 0.5s forwards;
+            pointer-events: none;
+        }
+        @keyframes fade-out {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(1.5); }
+        }
+        #reload-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff0;
+            font-size: 24px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu-container">
+        <div class="category-header">Action Games</div>
+        <div class="game-card" onclick="loadGame('shooter')">
+            <div class="game-icon">🎯</div>
+            <div class="game-title">Pixel Shooter</div>
+            <div class="game-description">Shoot fireballs at enemies in this action game!</div>
+        </div>
+        
+        <div class="game-card" onclick="loadGame('platformer')">
+            <div class="game-icon">🏃</div>
+            <div class="game-title">Pixel Platformer</div>
+            <div class="game-description">Jump and run through challenging levels!</div>
+        </div>
+        
+        <div class="game-card" onclick="loadGame('zombieShooter')">
+            <div class="game-icon">🧟</div>
+            <div class="game-title">Zombie Defense</div>
+            <div class="game-description">Defend against waves of zombies!</div>
+        </div>
+
+        <div class="category-header">Classic Games</div>
+        <div class="game-card" onclick="loadGame('snake')">
+            <div class="game-icon">🐍</div>
+            <div class="game-title">Snake</div>
+            <div class="game-description">Classic snake game with modern graphics!</div>
+        </div>
+        
+        <div class="game-card" onclick="loadGame('pong')">
+            <div class="game-icon">🏓</div>
+            <div class="game-title">Pong</div>
+            <div class="game-description">The original table tennis arcade game!</div>
+        </div>
+
+        <div class="category-header">Puzzle Games</div>
+        <div class="game-card" onclick="loadGame('match3')">
+            <div class="game-icon">💎</div>
+            <div class="game-title">Gem Match</div>
+            <div class="game-description">Match 3 or more gems to score!</div>
+        </div>
+        
+        <div class="game-card" onclick="loadGame('sliding')">
+            <div class="game-icon">🔢</div>
+            <div class="game-title">Sliding Puzzle</div>
+            <div class="game-description">Arrange the numbers in order!</div>
+        </div>
+
+        <div class="category-header">Sports Games</div>
+        <div class="game-card" onclick="loadGame('soccer')">
+            <div class="game-icon">⚽</div>
+            <div class="game-title">Mini Soccer</div>
+            <div class="game-description">Score goals in this 2D soccer game!</div>
+        </div>
+        
+        <div class="game-card" onclick="loadGame('basketball')">
+            <div class="game-icon">🏀</div>
+            <div class="game-title">Basketball</div>
+            <div class="game-description">Shoot hoops and score points!</div>
+        </div>
+
+        <div class="category-header">Racing Games</div>
+        <div class="game-card" onclick="loadGame('racing')">
+            <div class="game-icon">🏎️</div>
+            <div class="game-title">Pixel Racer</div>
+            <div class="game-description">Race against time and dodge obstacles!</div>
+        </div>
+        
+        <div class="game-card" onclick="loadGame('motocross')">
+            <div class="game-icon">🏍️</div>
+            <div class="game-title">Motocross</div>
+            <div class="game-description">Perform stunts and complete tracks!</div>
+        </div>
+    </div>
+
+    <div id="game-container"></div>
+
+    <script>
+        // Store the current game's cleanup function
+        let currentGameCleanup = null;
+
+        function loadGame(gameName) {
+            const menuContainer = document.getElementById('menu-container');
+            const gameContainer = document.getElementById('game-container');
+
+            // Clean up current game if exists
+            if (currentGameCleanup) {
+                currentGameCleanup();
+                currentGameCleanup = null;
+            }
+
+            // Hide menu, show game container
+            menuContainer.style.display = 'none';
+            gameContainer.style.display = 'block';
+
+            // Add back button
+            if (!document.querySelector('.back-button')) {
+                const backButton = document.createElement('button');
+                backButton.className = 'back-button';
+                backButton.textContent = '← Back to Menu';
+                backButton.onclick = returnToMenu;
+                document.body.appendChild(backButton);
+            }
+
+            // Load game from its file
+            const iframe = document.createElement('iframe');
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            
+            switch(gameName) {
+                case 'shooter':
+                    iframe.src = 'action/pixel-shooter.html';
+                    break;
+                case 'platformer':
+                    iframe.src = 'action/pixel-platformer.html';
+                    break;
+                case 'zombieShooter':
+                    iframe.src = 'action/zombie-defense.html';
+                    break;
+                case 'snake':
+                    iframe.src = 'classic/snake.html';
+                    break;
+                case 'pong':
+                    iframe.src = 'classic/pong.html';
+                    break;
+                case 'match3':
+                    iframe.src = 'puzzle/match3.html';
+                    break;
+                case 'sliding':
+                    iframe.src = 'puzzle/sliding.html';
+                    break;
+                case 'racing':
+                    iframe.src = 'racing/pixel-racer.html';
+                    break;
+                case 'motocross':
+                    iframe.src = 'racing/motocross.html';
+                    break;
+                case 'soccer':
+                    iframe.src = 'sports/soccer.html';
+                    break;
+                case 'basketball':
+                    iframe.src = 'sports/basketball.html';
+                    break;
+                default:
+                    gameContainer.innerHTML = `
+                        <div style="text-align: center; padding: 50px;">
+                            <h1>${gameName.charAt(0).toUpperCase() + gameName.slice(1)} - Coming Soon!</h1>
+                            <p>This game is under development. Check back later!</p>
+                        </div>
+                    `;
+                    return;
+            }
+
+            gameContainer.innerHTML = '';
+            gameContainer.appendChild(iframe);
+        }
+
+        function returnToMenu() {
+            // Clean up current game
+            if (currentGameCleanup) {
+                currentGameCleanup();
+                currentGameCleanup = null;
+            }
+
+            // Remove back button
+            const backButton = document.querySelector('.back-button');
+            if (backButton) {
+                backButton.remove();
+            }
+
+            // Show menu, hide game
+            document.getElementById('menu-container').style.display = 'grid';
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('game-container').innerHTML = '';
+        }
+
+        function loadSnakeGame() {
+            const gameContainer = document.getElementById('game-container');
+            gameContainer.innerHTML = `
+                <style>
+                    #snake-container {
+                        width: 400px;
+                        height: 400px;
+                        margin: 20px auto;
+                        background: #222;
+                        border: 2px solid #333;
+                        position: relative;
+                    }
+                    .snake-segment {
+                        width: 20px;
+                        height: 20px;
+                        background: #4CAF50;
+                        position: absolute;
+                        border-radius: 4px;
+                    }
+                    .snake-food {
+                        width: 20px;
+                        height: 20px;
+                        background: #ff4444;
+                        position: absolute;
+                        border-radius: 50%;
+                    }
+                    #snake-score {
+                        color: white;
+                        font-size: 24px;
+                        margin: 10px;
+                    }
+                    .game-over {
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        color: white;
+                        font-size: 32px;
+                        text-align: center;
+                        display: none;
+                    }
+                    .controls {
+                        margin: 20px;
+                        color: white;
+                    }
+                    .special-food {
+                        background: gold !important;
+                        animation: pulse 0.5s infinite;
+                    }
+                    @keyframes pulse {
+                        0% { transform: scale(1); }
+                        50% { transform: scale(1.2); }
+                        100% { transform: scale(1); }
+                    }
+                    #high-score {
+                        color: gold;
+                        font-size: 24px;
+                        margin: 10px;
+                    }
+                    .difficulty {
+                        margin: 10px;
+                    }
+                    .difficulty button {
+                        padding: 5px 10px;
+                        margin: 0 5px;
+                        cursor: pointer;
+                    }
+                    .difficulty button.active {
+                        background: #4CAF50;
+                        color: white;
+                    }
+                </style>
+                <h1>Snake Game</h1>
+                <div id="high-score">High Score: 0</div>
+                <div id="snake-score">Score: 0</div>
+                <div class="difficulty">
+                    <button id="easy-btn" class="active">Easy</button>
+                    <button id="medium-btn">Medium</button>
+                    <button id="hard-btn">Hard</button>
+                </div>
+                <div id="snake-container">
+                    <div class="game-over">
+                        Game Over!<br>
+                        Press Space to Restart
+                    </div>
+                </div>
+                <div class="controls">
+                    Use Arrow Keys or WASD to move<br>
+                    Space to restart when game is over
+                </div>
+            `;
+
+            // Get DOM elements
+            const container = document.getElementById('snake-container');
+            const scoreElement = document.getElementById('snake-score');
+            const gameOverElement = container.querySelector('.game-over');
+            const easyBtn = document.getElementById('easy-btn');
+            const mediumBtn = document.getElementById('medium-btn');
+            const hardBtn = document.getElementById('hard-btn');
+            
+            // Game variables
+            const gridSize = 20;
+            const gridWidth = Math.floor(container.offsetWidth / gridSize);
+            const gridHeight = Math.floor(container.offsetHeight / gridSize);
+            
+            let snake = [];
+            let food = null;
+            let direction = 'right';
+            let nextDirection = 'right';
+            let score = 0;
+            let gameLoop = null;
+            let isGameOver = false;
+            let highScore = 0;
+            let gameSpeed = 100;
+
+            // Add difficulty button event listeners
+            easyBtn.addEventListener('click', () => setDifficulty('easy'));
+            mediumBtn.addEventListener('click', () => setDifficulty('medium'));
+            hardBtn.addEventListener('click', () => setDifficulty('hard'));
+
+            function setDifficulty(level) {
+                [easyBtn, mediumBtn, hardBtn].forEach(btn => btn.classList.remove('active'));
+                
+                switch(level) {
+                    case 'easy':
+                        easyBtn.classList.add('active');
+                        gameSpeed = 100;
+                        break;
+                    case 'medium':
+                        mediumBtn.classList.add('active');
+                        gameSpeed = 75;
+                        break;
+                    case 'hard':
+                        hardBtn.classList.add('active');
+                        gameSpeed = 50;
+                        break;
+                }
+
+                resetGame();
+            }
+
+            function createSnakeSegment(x, y) {
+                const segment = document.createElement('div');
+                segment.className = 'snake-segment';
+                segment.style.left = (x * gridSize) + 'px';
+                segment.style.top = (y * gridSize) + 'px';
+                container.appendChild(segment);
+                return segment;
+            }
+
+            function createFood(isSpecial = false) {
+                let x, y;
+                do {
+                    x = Math.floor(Math.random() * gridWidth);
+                    y = Math.floor(Math.random() * gridHeight);
+                } while (snake.some(segment => segment.x === x && segment.y === y));
+
+                const foodElement = document.createElement('div');
+                foodElement.className = 'snake-food' + (isSpecial ? ' special-food' : '');
+                foodElement.style.left = (x * gridSize) + 'px';
+                foodElement.style.top = (y * gridSize) + 'px';
+                container.appendChild(foodElement);
+                
+                if (isSpecial) {
+                    specialFoodTimeout = setTimeout(() => {
+                        if (specialFood) {
+                            specialFood.element.remove();
+                            specialFood = null;
+                        }
+                    }, 5000);
+                }
+                
+                return { x, y, element: foodElement, isSpecial };
+            }
+
+            function updateGame() {
+                if (isGameOver) return;
+
+                // Update direction
+                direction = nextDirection;
+
+                // Calculate new head position
+                const head = {...snake[0]};
+                switch(direction) {
+                    case 'up': head.y--; break;
+                    case 'down': head.y++; break;
+                    case 'left': head.x--; break;
+                    case 'right': head.x++; break;
+                }
+
+                // Check collision with walls
+                if (head.x < 0 || head.x >= gridWidth || 
+                    head.y < 0 || head.y >= gridHeight) {
+                    gameOver();
+                    return;
+                }
+
+                // Check collision with self
+                if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                    gameOver();
+                    return;
+                }
+
+                // Add new head
+                snake.unshift(head);
+                createSnakeSegment(head.x, head.y);
+
+                // Check food collision
+                if (food && head.x === food.x && head.y === food.y) {
+                    // Don't remove tail - snake grows
+                    score += 10;
+                    scoreElement.textContent = `Score: ${score}`;
+                    if (score > highScore) {
+                        highScore = score;
+                        document.getElementById('high-score').textContent = `High Score: ${highScore}`;
+                    }
+                    food.element.remove();
+                    food = createFood();
+                } else {
+                    // Remove tail if no food eaten
+                    snake.pop();
+                    if (container.children.length > 2) { // Account for game over div
+                        container.removeChild(container.lastChild);
+                    }
+                }
+            }
+
+            function gameOver() {
+                isGameOver = true;
+                clearInterval(gameLoop);
+                gameOverElement.style.display = 'block';
+            }
+
+            function resetGame() {
+                // Clear container except game over message
+                while (container.children.length > 1) {
+                    container.removeChild(container.lastChild);
+                }
+
+                // Reset variables
+                snake = [{x: Math.floor(gridWidth/2), y: Math.floor(gridHeight/2)}];
+                direction = 'right';
+                nextDirection = 'right';
+                score = 0;
+                isGameOver = false;
+                scoreElement.textContent = 'Score: 0';
+                gameOverElement.style.display = 'none';
+
+                // Create initial snake segment
+                createSnakeSegment(snake[0].x, snake[0].y);
+
+                // Create initial food
+                food = createFood();
+
+                // Start game loop
+                if (gameLoop) clearInterval(gameLoop);
+                gameLoop = setInterval(updateGame, gameSpeed);
+            }
+
+            // Event listeners
+            const keydownHandler = (e) => {
+                switch(e.key.toLowerCase()) {
+                    case 'arrowup':
+                    case 'w':
+                        if (direction !== 'down') nextDirection = 'up';
+                        break;
+                    case 'arrowdown':
+                    case 's':
+                        if (direction !== 'up') nextDirection = 'down';
+                        break;
+                    case 'arrowleft':
+                    case 'a':
+                        if (direction !== 'right') nextDirection = 'left';
+                        break;
+                    case 'arrowright':
+                    case 'd':
+                        if (direction !== 'left') nextDirection = 'right';
+                        break;
+                    case ' ':
+                        if (isGameOver) resetGame();
+                        break;
+                }
+            };
+
+            window.addEventListener('keydown', keydownHandler);
+
+            // Initialize game
+            resetGame();
+
+            // Return cleanup function
+            return function cleanup() {
+                window.removeEventListener('keydown', keydownHandler);
+                if (gameLoop) clearInterval(gameLoop);
+                [easyBtn, mediumBtn, hardBtn].forEach(btn => {
+                    btn.removeEventListener('click', setDifficulty);
+                });
+            };
+        }
+
+        function loadPongGame() {
+            const gameContainer = document.getElementById('game-container');
+            gameContainer.innerHTML = `
+                <style>
+                    #pong-container {
+                        width: 800px;
+                        height: 400px;
+                        background: #000;
+                        position: relative;
+                        margin: 20px auto;
+                        border: 2px solid #fff;
+                    }
+                    .paddle {
+                        width: 10px;
+                        height: 60px;
+                        background: #fff;
+                        position: absolute;
+                        top: 50%;
+                        transform: translateY(-50%);
+                    }
+                    #player-paddle { left: 20px; }
+                    #cpu-paddle { right: 20px; }
+                    .ball {
+                        width: 10px;
+                        height: 10px;
+                        background: #fff;
+                        position: absolute;
+                        border-radius: 50%;
+                    }
+                    #pong-score {
+                        color: #fff;
+                        font-size: 32px;
+                        text-align: center;
+                        margin: 10px;
+                    }
+                </style>
+                <div id="pong-score">0 - 0</div>
+                <div id="pong-container">
+                    <div id="player-paddle" class="paddle"></div>
+                    <div id="cpu-paddle" class="paddle"></div>
+                    <div class="ball"></div>
+                </div>
+            `;
+
+            const container = document.getElementById('pong-container');
+            const ball = container.querySelector('.ball');
+            const playerPaddle = document.getElementById('player-paddle');
+            const cpuPaddle = document.getElementById('cpu-paddle');
+            const scoreElement = document.getElementById('pong-score');
+
+            let playerScore = 0;
+            let cpuScore = 0;
+            let ballX = container.offsetWidth / 2;
+            let ballY = container.offsetHeight / 2;
+            let ballSpeedX = 5;
+            let ballSpeedY = 5;
+            let playerY = container.offsetHeight / 2;
+            let cpuY = container.offsetHeight / 2;
+            let gameLoop;
+
+            function updateGame() {
+                // Move ball
+                ballX += ballSpeedX;
+                ballY += ballSpeedY;
+
+                // Ball collision with top and bottom
+                if (ballY <= 0 || ballY >= container.offsetHeight - 10) {
+                    ballSpeedY *= -1;
+                }
+
+                // Ball collision with paddles
+                const playerRect = playerPaddle.getBoundingClientRect();
+                const cpuRect = cpuPaddle.getBoundingClientRect();
+                const ballRect = ball.getBoundingClientRect();
+
+                if (ballX <= 30 && 
+                    ballY >= playerY - 30 && 
+                    ballY <= playerY + 30) {
+                    ballSpeedX *= -1.1; // Increase speed slightly
+                    const diff = ballY - playerY;
+                    ballSpeedY = diff * 0.2;
+                }
+
+                if (ballX >= container.offsetWidth - 40 && 
+                    ballY >= cpuY - 30 && 
+                    ballY <= cpuY + 30) {
+                    ballSpeedX *= -1.1; // Increase speed slightly
+                    const diff = ballY - cpuY;
+                    ballSpeedY = diff * 0.2;
+                }
+
+                // Scoring
+                if (ballX <= 0) {
+                    cpuScore++;
+                    resetBall();
+                } else if (ballX >= container.offsetWidth - 10) {
+                    playerScore++;
+                    resetBall();
+                }
+
+                // Update CPU paddle
+                const cpuSpeed = 4;
+                if (cpuY < ballY - 30) {
+                    cpuY += cpuSpeed;
+                } else if (cpuY > ballY + 30) {
+                    cpuY -= cpuSpeed;
+                }
+
+                // Update positions
+                ball.style.left = ballX + 'px';
+                ball.style.top = ballY + 'px';
+                playerPaddle.style.top = playerY + 'px';
+                cpuPaddle.style.top = cpuY + 'px';
+                scoreElement.textContent = `${playerScore} - ${cpuScore}`;
+
+                gameLoop = requestAnimationFrame(updateGame);
+            }
+
+            function resetBall() {
+                ballX = container.offsetWidth / 2;
+                ballY = container.offsetHeight / 2;
+                ballSpeedX = Math.random() > 0.5 ? 5 : -5;
+                ballSpeedY = (Math.random() - 0.5) * 10;
+            }
+
+            // Mouse/touch control for player paddle
+            function handleMove(e) {
+                const containerRect = container.getBoundingClientRect();
+                const y = e.clientY - containerRect.top;
+                playerY = Math.max(30, Math.min(container.offsetHeight - 30, y));
+            }
+
+            container.addEventListener('mousemove', handleMove);
+            container.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                handleMove(e.touches[0]);
+            });
+
+            // Start game
+            resetBall();
+            updateGame();
+
+            // Return cleanup function
+            return function cleanup() {
+                cancelAnimationFrame(gameLoop);
+                container.removeEventListener('mousemove', handleMove);
+                container.removeEventListener('touchmove', handleMove);
+            };
+        }
+
+        function loadBreakoutGame() {
+            // Implement Breakout game
+            const gameContainer = document.getElementById('game-container');
+            gameContainer.innerHTML = '<h1>Breakout - Coming Soon!</h1>';
+        }
+
+        function loadZombieDefenseGame() {
+            const gameContainer = document.getElementById('game-container');
+            gameContainer.innerHTML = `
+                <style>
+                    #zombie-container {
+                        position: relative;
+                        width: 800px;
+                        height: 400px;
+                        background-color: #2a2a2a;
+                        border: 2px solid #333;
+                        overflow: hidden;
+                        margin: 20px auto;
+                    }
+                    .player {
+                        position: absolute;
+                        width: 40px;
+                        height: 40px;
+                        background: #4CAF50;
+                        border-radius: 50%;
+                        transform-origin: center;
+                        border: 2px solid #fff;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+                    }
+                    .zombie {
+                        position: absolute;
+                        width: 30px;
+                        height: 30px;
+                        font-size: 24px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transform-origin: center;
+                        user-select: none;
+                    }
+                    .bullet {
+                        position: absolute;
+                        width: 8px;
+                        height: 8px;
+                        background: #ff0;
+                        border-radius: 50%;
+                        box-shadow: 0 0 10px #ff0;
+                    }
+                    .blood-splatter {
+                        position: absolute;
+                        color: #8B0000;
+                        font-size: 20px;
+                        animation: fade-out 0.5s forwards;
+                        pointer-events: none;
+                    }
+                    @keyframes fade-out {
+                        from { opacity: 1; transform: scale(1); }
+                        to { opacity: 0; transform: scale(1.5); }
+                    }
+                    #reload-indicator {
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        color: #ff0;
+                        font-size: 24px;
+                        display: none;
+                    }
+                </style>
+                <h1>Zombie Defense</h1>
+                <div id="score">Score: 0</div>
+                <div id="wave">Wave: 1</div>
+                <div id="ammo">Ammo: 30</div>
+                <div id="zombie-container">
+                    <div class="player"></div>
+                </div>
+            `;
+
+            const container = document.getElementById('zombie-container');
+            const player = container.querySelector('.player');
+            const scoreElement = document.getElementById('score');
+            const waveElement = document.getElementById('wave');
+            const ammoElement = document.getElementById('ammo');
+
+            let score = 0;
+            let wave = 1;
+            let ammo = 30;
+            let playerX = container.offsetWidth / 2;
+            let playerY = container.offsetHeight / 2;
+            let playerAngle = 0;
+            let zombies = [];
+            let bullets = [];
+            let isReloading = false;
+
+            function updatePlayerPosition() {
+                player.style.left = (playerX - 20) + 'px';
+                player.style.top = (playerY - 20) + 'px';
+                player.style.transform = `rotate(${playerAngle}deg)`;
+            }
+
+            function spawnZombie() {
+                const zombie = document.createElement('div');
+                zombie.className = 'zombie';
+                zombie.innerHTML = '🧟';  // Zombie emoji
+                const side = Math.floor(Math.random() * 4);
+                let x, y;
+
+                switch(side) {
+                    case 0: // Top
+                        x = Math.random() * container.offsetWidth;
+                        y = -30;
+                        break;
+                    case 1: // Right
+                        x = container.offsetWidth + 30;
+                        y = Math.random() * container.offsetHeight;
+                        break;
+                    case 2: // Bottom
+                        x = Math.random() * container.offsetWidth;
+                        y = container.offsetHeight + 30;
+                        break;
+                    case 3: // Left
+                        x = -30;
+                        y = Math.random() * container.offsetHeight;
+                        break;
+                }
+
+                zombie.style.left = x + 'px';
+                zombie.style.top = y + 'px';
+                container.appendChild(zombie);
+                
+                return {
+                    element: zombie,
+                    x: x,
+                    y: y,
+                    speed: 1 + Math.random() * (wave * 0.2),
+                    health: 1 + Math.floor(wave / 5)  // Zombies get tougher in later waves
+                };
+            }
+
+            function shoot(angle) {
+                if (ammo <= 0 || isReloading) return;
+                
+                ammo--;
+                ammoElement.textContent = `Ammo: ${ammo}`;
+
+                const bullet = document.createElement('div');
+                bullet.className = 'bullet';
+                const speed = 10;
+                const radians = angle * Math.PI / 180;
+                
+                bullets.push({
+                    element: bullet,
+                    x: playerX,
+                    y: playerY,
+                    dx: Math.cos(radians) * speed,
+                    dy: Math.sin(radians) * speed
+                });
+
+                bullet.style.left = playerX + 'px';
+                bullet.style.top = playerY + 'px';
+                container.appendChild(bullet);
+
+                if (ammo === 0) {
+                    reload();
+                }
+            }
+
+            function reload() {
+                if (isReloading) return;
+                
+                isReloading = true;
+                const reloadIndicator = document.getElementById('reload-indicator');
+                reloadIndicator.style.display = 'block';
+                
+                setTimeout(() => {
+                    ammo = 30;
+                    ammoElement.textContent = `Ammo: ${ammo}`;
+                    isReloading = false;
+                    reloadIndicator.style.display = 'none';
+                }, 2000);
+            }
+
+            function updateGame() {
+                // Update zombies
+                for (let i = zombies.length - 1; i >= 0; i--) {
+                    const zombie = zombies[i];
+                    const dx = playerX - zombie.x;
+                    const dy = playerY - zombie.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    zombie.x += (dx / distance) * zombie.speed;
+                    zombie.y += (dy / distance) * zombie.speed;
+                    
+                    zombie.element.style.left = zombie.x + 'px';
+                    zombie.element.style.top = zombie.y + 'px';
+                    zombie.element.style.transform = `rotate(${Math.atan2(dy, dx) * 180 / Math.PI}deg)`;
+
+                    // Check collision with player
+                    if (distance < 30) {
+                        alert(`Game Over! Score: ${score}`);
+                        resetGame();
+                        return;
+                    }
+                }
+
+                // Update bullets
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    const bullet = bullets[i];
+                    bullet.x += bullet.dx;
+                    bullet.y += bullet.dy;
+                    
+                    // Remove if out of bounds
+                    if (bullet.x < 0 || bullet.x > container.offsetWidth ||
+                        bullet.y < 0 || bullet.y > container.offsetHeight) {
+                        bullet.element.remove();
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+
+                    bullet.element.style.left = bullet.x + 'px';
+                    bullet.element.style.top = bullet.y + 'px';
+
+                    // Check collision with zombies
+                    for (let j = zombies.length - 1; j >= 0; j--) {
+                        const zombie = zombies[j];
+                        const dx = zombie.x - bullet.x;
+                        const dy = zombie.y - bullet.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (distance < 20) {
+                            zombie.health--;
+                            if (zombie.health <= 0) {
+                                addBloodSplatter(zombie.x, zombie.y);
+                                zombie.element.remove();
+                                zombies.splice(j, 1);
+                                score += 10 * wave;  // More points in later waves
+                                scoreElement.textContent = `Score: ${score}`;
+                                
+                                if (zombies.length === 0) {
+                                    wave++;
+                                    waveElement.textContent = `Wave: ${wave}`;
+                                    startWave();
+                                }
+                            }
+                            bullet.element.remove();
+                            bullets.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+
+                requestAnimationFrame(updateGame);
+            }
+
+            function startWave() {
+                for (let i = 0; i < wave * 5; i++) {
+                    zombies.push(spawnZombie());
+                }
+            }
+
+            function resetGame() {
+                score = 0;
+                wave = 1;
+                ammo = 30;
+                zombies.forEach(z => z.element.remove());
+                bullets.forEach(b => b.element.remove());
+                zombies = [];
+                bullets = [];
+                scoreElement.textContent = `Score: ${score}`;
+                waveElement.textContent = `Wave: ${wave}`;
+                ammoElement.textContent = `Ammo: ${ammo}`;
+                playerX = container.offsetWidth / 2;
+                playerY = container.offsetHeight / 2;
+                updatePlayerPosition();
+                startWave();
+            }
+
+            // Event listeners
+            window.addEventListener('mousemove', (e) => {
+                const rect = container.getBoundingClientRect();
+                const dx = e.clientX - rect.left - playerX;
+                const dy = e.clientY - rect.top - playerY;
+                playerAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+                updatePlayerPosition();
+            });
+
+            window.addEventListener('click', (e) => {
+                shoot(playerAngle);
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'r') reload();
+            });
+
+            // Initialize game
+            updatePlayerPosition();
+            startWave();
+            updateGame();
+
+            // Return cleanup function
+            return function cleanup() {
+                zombies.forEach(z => z.element.remove());
+                bullets.forEach(b => b.element.remove());
+            };
+        }
+    </script>
+</body>
+</html> 

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basketball</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            margin: 0;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            width: 800px;
+            height: 400px;
+            background-color: #2a2a2a;
+            border: 2px solid #333;
+            position: relative;
+            overflow: hidden;
+            margin: 20px auto;
+        }
+        .player {
+            width: 40px;
+            height: 40px;
+            position: absolute;
+            background-color: #2196F3;
+            border-radius: 50%;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .ball {
+            width: 20px;
+            height: 20px;
+            position: absolute;
+            background-color: #FF9800;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: inset -2px -2px 4px rgba(0,0,0,0.3);
+        }
+        .hoop {
+            position: absolute;
+            right: 50px;
+            top: 150px;
+        }
+        .backboard {
+            width: 10px;
+            height: 80px;
+            background-color: white;
+            position: absolute;
+            right: 0;
+        }
+        .rim {
+            width: 40px;
+            height: 5px;
+            background-color: #f44336;
+            position: absolute;
+            right: 10px;
+            top: 40px;
+        }
+        .net {
+            width: 40px;
+            height: 30px;
+            position: absolute;
+            right: 10px;
+            top: 45px;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(255,255,255,0.2),
+                rgba(255,255,255,0.2) 2px,
+                transparent 2px,
+                transparent 4px
+            );
+        }
+        #score {
+            font-size: 48px;
+            margin: 10px;
+            font-family: 'Arial Black', sans-serif;
+        }
+        #power-meter {
+            width: 200px;
+            height: 20px;
+            background-color: #333;
+            margin: 10px auto;
+            position: relative;
+        }
+        #power-fill {
+            width: 0%;
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.1s;
+        }
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            z-index: 100;
+        }
+        #timer {
+            font-size: 24px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Basketball</h1>
+    <div id="score">0</div>
+    <div id="timer">60</div>
+    <div id="power-meter">
+        <div id="power-fill"></div>
+    </div>
+    <div id="game-container">
+        <div class="player"></div>
+        <div class="ball"></div>
+        <div class="hoop">
+            <div class="backboard"></div>
+            <div class="rim"></div>
+            <div class="net"></div>
+        </div>
+        <div class="game-over">
+            Game Over!<br>
+            Press Space to Play Again
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('game-container');
+        const player = document.querySelector('.player');
+        const ball = document.querySelector('.ball');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer');
+        const powerMeter = document.getElementById('power-fill');
+        const gameOverScreen = document.querySelector('.game-over');
+
+        let playerX = 400;
+        let ballX = 400;
+        let ballY = 340;
+        let ballVelX = 0;
+        let ballVelY = 0;
+        let score = 0;
+        let timeLeft = 60;
+        let gameLoop;
+        let timerInterval;
+        let hasBall = true;
+        let isCharging = false;
+        let power = 0;
+        let keys = {};
+
+        const GRAVITY = 0.5;
+        const PLAYER_SPEED = 5;
+        const MAX_POWER = 20;
+
+        function initGame() {
+            // Reset variables
+            playerX = 400;
+            ballX = 400;
+            ballY = 340;
+            ballVelX = 0;
+            ballVelY = 0;
+            score = 0;
+            timeLeft = 60;
+            hasBall = true;
+            power = 0;
+            updateScore();
+            updateTimer();
+
+            // Reset positions
+            player.style.left = playerX + 'px';
+            ball.style.left = ballX + 'px';
+            ball.style.top = ballY + 'px';
+
+            // Hide game over screen
+            gameOverScreen.style.display = 'none';
+
+            // Clear previous intervals
+            if (gameLoop) cancelAnimationFrame(gameLoop);
+            if (timerInterval) clearInterval(timerInterval);
+
+            // Start game loop and timer
+            gameLoop = requestAnimationFrame(updateGame);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimer();
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = score;
+        }
+
+        function updateTimer() {
+            timerDisplay.textContent = timeLeft;
+        }
+
+        function shoot() {
+            if (!hasBall) return;
+
+            const angle = Math.PI * 0.8; // Fixed upward angle
+            ballVelX = Math.cos(angle) * power;
+            ballVelY = -Math.sin(angle) * power;
+            hasBall = false;
+            power = 0;
+            powerMeter.style.width = '0%';
+        }
+
+        function updateGame() {
+            // Move player
+            if (keys['ArrowLeft']) playerX = Math.max(20, playerX - PLAYER_SPEED);
+            if (keys['ArrowRight']) playerX = Math.min(container.offsetWidth - 20, playerX + PLAYER_SPEED);
+            player.style.left = playerX + 'px';
+
+            // Update ball position
+            if (!hasBall) {
+                ballX += ballVelX;
+                ballY += ballVelY;
+                ballVelY += GRAVITY;
+
+                // Check for scoring
+                if (ballX > 700 && ballX < 750 && ballY > 180 && ballY < 200 && ballVelY > 0) {
+                    score += 2;
+                    updateScore();
+                    resetBall();
+                }
+
+                // Check for missing
+                if (ballY > container.offsetHeight || ballX < 0 || ballX > container.offsetWidth) {
+                    resetBall();
+                }
+
+                // Update ball position
+                ball.style.left = ballX + 'px';
+                ball.style.top = ballY + 'px';
+            } else {
+                // Ball follows player
+                ballX = playerX;
+                ball.style.left = ballX + 'px';
+            }
+
+            // Update power meter
+            if (isCharging && hasBall) {
+                power = Math.min(power + 0.5, MAX_POWER);
+                powerMeter.style.width = (power / MAX_POWER * 100) + '%';
+            }
+
+            gameLoop = requestAnimationFrame(updateGame);
+        }
+
+        function resetBall() {
+            hasBall = true;
+            ballX = playerX;
+            ballY = 340;
+            ballVelX = 0;
+            ballVelY = 0;
+        }
+
+        function endGame() {
+            gameOverScreen.style.display = 'block';
+            gameOverScreen.innerHTML = `Final Score: ${score}<br>Press Space to Play Again`;
+            cancelAnimationFrame(gameLoop);
+            clearInterval(timerInterval);
+        }
+
+        // Event Listeners
+        document.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            if (e.key === ' ') {
+                if (gameOverScreen.style.display === 'block') {
+                    initGame();
+                } else if (hasBall) {
+                    isCharging = true;
+                }
+            }
+        });
+
+        document.addEventListener('keyup', e => {
+            keys[e.key] = false;
+            if (e.key === ' ' && isCharging) {
+                isCharging = false;
+                shoot();
+            }
+        });
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html> 

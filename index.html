@@ -493,6 +493,47 @@
         }
         .games-sub b { color: #fff; }
 
+        .archive-note {
+            max-width: 720px;
+            margin: 64px auto 0;
+            padding: 28px 30px;
+            text-align: center;
+            border: 1px solid rgba(255, 224, 102, 0.25);
+            border-radius: 14px;
+            background: rgba(255, 224, 102, 0.04);
+        }
+
+        .archive-note h3 {
+            color: #ffe066;
+            font-size: 1.25rem;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .archive-note p {
+            color: #8a8aaa;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 18px;
+        }
+
+        .archive-link {
+            display: inline-block;
+            padding: 11px 26px;
+            border-radius: 8px;
+            color: #0a0a2e;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-decoration: none;
+            background: linear-gradient(135deg, #ffe066, #e0b93c);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .archive-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 22px rgba(255, 224, 102, 0.25);
+        }
+
         .filters {
             display: flex;
             justify-content: center;
@@ -711,6 +752,12 @@
     <p class="games-sub">Every game here is <b>original</b>, <b>free</b>, and runs instantly in your browser. No downloads, no accounts.</p>
     <div class="filters" id="filters"></div>
     <div class="games-grid" id="grid"></div>
+
+    <div class="archive-note">
+        <h3>THE 2024 ARCHIVE</h3>
+        <p>Where Simboland started. Eleven early browser games from 2024 &mdash; kept exactly as they were.</p>
+        <a class="archive-link" href="2024/">VISIT THE ARCHIVE</a>
+    </div>
 </section>
 
 <footer>

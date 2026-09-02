@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Soccer</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            margin: 0;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            width: 800px;
+            height: 400px;
+            background-color: #4CAF50;
+            border: 2px solid #333;
+            position: relative;
+            overflow: hidden;
+            margin: 20px auto;
+        }
+        .player {
+            width: 30px;
+            height: 30px;
+            position: absolute;
+            background-color: #2196F3;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .ball {
+            width: 20px;
+            height: 20px;
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: inset -2px -2px 4px rgba(0,0,0,0.3);
+        }
+        .goal {
+            width: 20px;
+            height: 100px;
+            position: absolute;
+            background-color: #f44336;
+            top: 150px;
+        }
+        #left-goal {
+            left: 0;
+        }
+        #right-goal {
+            right: 0;
+        }
+        .score {
+            font-size: 48px;
+            margin: 10px;
+            font-family: 'Arial Black', sans-serif;
+        }
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            z-index: 100;
+        }
+        .field-line {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.5);
+        }
+        #center-line {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+        }
+        #center-circle {
+            width: 100px;
+            height: 100px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <h1>Mini Soccer</h1>
+    <div class="score">0 - 0</div>
+    <div id="game-container">
+        <div class="field-line" id="center-line"></div>
+        <div id="center-circle"></div>
+        <div class="goal" id="left-goal"></div>
+        <div class="goal" id="right-goal"></div>
+        <div class="player" id="player1"></div>
+        <div class="player" id="player2"></div>
+        <div class="ball"></div>
+        <div class="game-over">
+            Game Over!<br>
+            Press Space to Restart
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('game-container');
+        const player1 = document.getElementById('player1');
+        const player2 = document.getElementById('player2');
+        const ball = document.querySelector('.ball');
+        const scoreDisplay = document.querySelector('.score');
+        const gameOverScreen = document.querySelector('.game-over');
+
+        let p1x = 200;
+        let p1y = 200;
+        let p2x = 600;
+        let p2y = 200;
+        let ballX = 400;
+        let ballY = 200;
+        let ballVelX = 0;
+        let ballVelY = 0;
+        let score1 = 0;
+        let score2 = 0;
+        let gameLoop;
+        let keys = {};
+
+        const PLAYER_SPEED = 5;
+        const BALL_FRICTION = 0.98;
+        const KICK_POWER = 15;
+
+        function initGame() {
+            // Reset positions
+            p1x = 200;
+            p1y = 200;
+            p2x = 600;
+            p2y = 200;
+            resetBall();
+
+            // Reset score
+            score1 = 0;
+            score2 = 0;
+            updateScore();
+
+            // Hide game over screen
+            gameOverScreen.style.display = 'none';
+
+            // Start game loop
+            if (gameLoop) cancelAnimationFrame(gameLoop);
+            gameLoop = requestAnimationFrame(updateGame);
+        }
+
+        function resetBall() {
+            ballX = 400;
+            ballY = 200;
+            ballVelX = 0;
+            ballVelY = 0;
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `${score1} - ${score2}`;
+        }
+
+        function updateGame() {
+            // Move players
+            if (keys['w']) p1y = Math.max(15, p1y - PLAYER_SPEED);
+            if (keys['s']) p1y = Math.min(container.offsetHeight - 15, p1y + PLAYER_SPEED);
+            if (keys['a']) p1x = Math.max(15, p1x - PLAYER_SPEED);
+            if (keys['d']) p1x = Math.min(container.offsetWidth - 15, p1x + PLAYER_SPEED);
+
+            if (keys['ArrowUp']) p2y = Math.max(15, p2y - PLAYER_SPEED);
+            if (keys['ArrowDown']) p2y = Math.min(container.offsetHeight - 15, p2y + PLAYER_SPEED);
+            if (keys['ArrowLeft']) p2x = Math.max(15, p2x - PLAYER_SPEED);
+            if (keys['ArrowRight']) p2x = Math.min(container.offsetWidth - 15, p2x + PLAYER_SPEED);
+
+            // Update ball position
+            ballX += ballVelX;
+            ballY += ballVelY;
+
+            // Apply friction to ball
+            ballVelX *= BALL_FRICTION;
+            ballVelY *= BALL_FRICTION;
+
+            // Ball collision with walls
+            if (ballY < 10 || ballY > container.offsetHeight - 10) {
+                ballVelY = -ballVelY * 0.8;
+                ballY = ballY < 10 ? 10 : container.offsetHeight - 10;
+            }
+
+            // Ball collision with goals
+            if (ballX < 20 && ballY > 150 && ballY < 250) {
+                score2++;
+                updateScore();
+                resetBall();
+            } else if (ballX > container.offsetWidth - 20 && ballY > 150 && ballY < 250) {
+                score1++;
+                updateScore();
+                resetBall();
+            }
+            // Regular wall collision if not in goal
+            else if (ballX < 10 || ballX > container.offsetWidth - 10) {
+                ballVelX = -ballVelX * 0.8;
+                ballX = ballX < 10 ? 10 : container.offsetWidth - 10;
+            }
+
+            // Ball collision with players
+            const checkPlayerCollision = (px, py) => {
+                const dx = ballX - px;
+                const dy = ballY - py;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 25) {
+                    // Calculate collision angle and apply kick force
+                    const angle = Math.atan2(dy, dx);
+                    const power = KICK_POWER;
+                    ballVelX = Math.cos(angle) * power;
+                    ballVelY = Math.sin(angle) * power;
+
+                    // Move ball outside of collision radius
+                    ballX = px + Math.cos(angle) * 25;
+                    ballY = py + Math.sin(angle) * 25;
+                }
+            };
+
+            checkPlayerCollision(p1x, p1y);
+            checkPlayerCollision(p2x, p2y);
+
+            // Update positions
+            player1.style.left = p1x + 'px';
+            player1.style.top = p1y + 'px';
+            player2.style.left = p2x + 'px';
+            player2.style.top = p2y + 'px';
+            ball.style.left = ballX + 'px';
+            ball.style.top = ballY + 'px';
+
+            // Check win condition
+            if (score1 >= 5 || score2 >= 5) {
+                endGame();
+                return;
+            }
+
+            gameLoop = requestAnimationFrame(updateGame);
+        }
+
+        function endGame() {
+            gameOverScreen.style.display = 'block';
+            gameOverScreen.innerHTML = `${score1 > score2 ? 'Player 1' : 'Player 2'} Wins!<br>Press Space to Play Again`;
+            cancelAnimationFrame(gameLoop);
+        }
+
+        // Event Listeners
+        document.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            if (e.key === ' ' && gameOverScreen.style.display === 'block') {
+                initGame();
+            }
+        });
+        document.addEventListener('keyup', e => keys[e.key] = false);
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html> 

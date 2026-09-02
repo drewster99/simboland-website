@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            margin: 0;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #snake-container {
+            width: 400px;
+            height: 400px;
+            margin: 20px auto;
+            background: #222;
+            border: 2px solid #333;
+            position: relative;
+        }
+        .snake-segment {
+            width: 20px;
+            height: 20px;
+            background: #4CAF50;
+            position: absolute;
+            border-radius: 4px;
+        }
+        .food {
+            width: 20px;
+            height: 20px;
+            background: #f44336;
+            position: absolute;
+            border-radius: 50%;
+        }
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+        }
+        .difficulty {
+            margin: 10px 0;
+        }
+        .difficulty button {
+            margin: 0 5px;
+            padding: 5px 15px;
+            cursor: pointer;
+            background: #333;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+        }
+        .difficulty button.active {
+            background: #4CAF50;
+        }
+        #snake-score, #high-score {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Snake Game</h1>
+    <div id="high-score">High Score: 0</div>
+    <div id="snake-score">Score: 0</div>
+    <div class="difficulty">
+        <button id="easy-btn" class="active">Easy</button>
+        <button id="medium-btn">Medium</button>
+        <button id="hard-btn">Hard</button>
+    </div>
+    <div id="snake-container">
+        <div class="game-over">
+            Game Over!<br>
+            Press Space to Restart
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('snake-container');
+        const gameOverScreen = document.querySelector('.game-over');
+        const scoreDisplay = document.getElementById('snake-score');
+        const highScoreDisplay = document.getElementById('high-score');
+        
+        let snake = [];
+        let food = null;
+        let direction = 'right';
+        let nextDirection = 'right';
+        let score = 0;
+        let highScore = 0;
+        let gameSpeed = 150; // Default speed (Easy)
+        let gameLoop;
+        let gameOver = false;
+
+        // Initialize game
+        function initGame() {
+            // Clear previous game state
+            container.innerHTML = '<div class="game-over">Game Over!<br>Press Space to Restart</div>';
+            gameOverScreen = document.querySelector('.game-over');
+            
+            // Reset variables
+            snake = [
+                { x: 6, y: 10 },
+                { x: 5, y: 10 },
+                { x: 4, y: 10 }
+            ];
+            direction = 'right';
+            nextDirection = 'right';
+            score = 0;
+            gameOver = false;
+            
+            // Create initial snake segments
+            snake.forEach(segment => {
+                const element = document.createElement('div');
+                element.className = 'snake-segment';
+                element.style.left = segment.x * 20 + 'px';
+                element.style.top = segment.y * 20 + 'px';
+                container.appendChild(element);
+            });
+            
+            // Create initial food
+            createFood();
+            
+            // Update score display
+            updateScore();
+            
+            // Hide game over screen
+            gameOverScreen.style.display = 'none';
+            
+            // Start game loop
+            if (gameLoop) clearInterval(gameLoop);
+            gameLoop = setInterval(updateGame, gameSpeed);
+        }
+
+        function createFood() {
+            let x, y;
+            do {
+                x = Math.floor(Math.random() * 20);
+                y = Math.floor(Math.random() * 20);
+            } while (snake.some(segment => segment.x === x && segment.y === y));
+
+            const element = document.createElement('div');
+            element.className = 'food';
+            element.style.left = x * 20 + 'px';
+            element.style.top = y * 20 + 'px';
+            container.appendChild(element);
+            food = { x, y, element };
+        }
+
+        function updateGame() {
+            if (gameOver) return;
+
+            // Update direction
+            direction = nextDirection;
+
+            // Calculate new head position
+            const head = { ...snake[0] };
+            switch (direction) {
+                case 'up': head.y--; break;
+                case 'down': head.y++; break;
+                case 'left': head.x--; break;
+                case 'right': head.x++; break;
+            }
+
+            // Check collision with walls
+            if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20) {
+                endGame();
+                return;
+            }
+
+            // Check collision with self
+            if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                endGame();
+                return;
+            }
+
+            // Create new head element
+            const headElement = document.createElement('div');
+            headElement.className = 'snake-segment';
+            headElement.style.left = head.x * 20 + 'px';
+            headElement.style.top = head.y * 20 + 'px';
+            container.appendChild(headElement);
+
+            // Add new head to snake array
+            snake.unshift(head);
+
+            // Check if food is eaten
+            if (head.x === food.x && head.y === food.y) {
+                // Remove current food
+                container.removeChild(food.element);
+                // Create new food
+                createFood();
+                // Increase score
+                score += 10;
+                updateScore();
+            } else {
+                // Remove tail
+                const tail = snake.pop();
+                const elements = document.getElementsByClassName('snake-segment');
+                container.removeChild(elements[elements.length - 1]);
+            }
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${score}`;
+            if (score > highScore) {
+                highScore = score;
+                highScoreDisplay.textContent = `High Score: ${highScore}`;
+            }
+        }
+
+        function endGame() {
+            gameOver = true;
+            clearInterval(gameLoop);
+            gameOverScreen.style.display = 'block';
+        }
+
+        // Event Listeners
+        document.addEventListener('keydown', e => {
+            switch (e.key) {
+                case 'ArrowUp':
+                    if (direction !== 'down') nextDirection = 'up';
+                    break;
+                case 'ArrowDown':
+                    if (direction !== 'up') nextDirection = 'down';
+                    break;
+                case 'ArrowLeft':
+                    if (direction !== 'right') nextDirection = 'left';
+                    break;
+                case 'ArrowRight':
+                    if (direction !== 'left') nextDirection = 'right';
+                    break;
+                case ' ':
+                    if (gameOver) initGame();
+                    break;
+            }
+        });
+
+        // Difficulty buttons
+        document.getElementById('easy-btn').addEventListener('click', function() {
+            gameSpeed = 150;
+            updateDifficulty(this);
+            if (!gameOver) {
+                clearInterval(gameLoop);
+                gameLoop = setInterval(updateGame, gameSpeed);
+            }
+        });
+
+        document.getElementById('medium-btn').addEventListener('click', function() {
+            gameSpeed = 100;
+            updateDifficulty(this);
+            if (!gameOver) {
+                clearInterval(gameLoop);
+                gameLoop = setInterval(updateGame, gameSpeed);
+            }
+        });
+
+        document.getElementById('hard-btn').addEventListener('click', function() {
+            gameSpeed = 70;
+            updateDifficulty(this);
+            if (!gameOver) {
+                clearInterval(gameLoop);
+                gameLoop = setInterval(updateGame, gameSpeed);
+            }
+        });
+
+        function updateDifficulty(button) {
+            document.querySelectorAll('.difficulty button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            button.classList.add('active');
+        }
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html> 

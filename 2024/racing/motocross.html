@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motocross</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            margin: 0;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            width: 800px;
+            height: 400px;
+            background-color: #2a2a2a;
+            border: 2px solid #333;
+            position: relative;
+            overflow: hidden;
+            margin: 20px auto;
+        }
+        .bike {
+            width: 60px;
+            height: 30px;
+            position: absolute;
+            transform-origin: center;
+            transition: transform 0.1s;
+        }
+        .bike-body {
+            width: 100%;
+            height: 100%;
+            background-color: #4CAF50;
+            border-radius: 5px;
+            position: relative;
+        }
+        .wheel {
+            width: 20px;
+            height: 20px;
+            background-color: #333;
+            border: 3px solid #666;
+            border-radius: 50%;
+            position: absolute;
+            bottom: -10px;
+        }
+        .wheel.front {
+            right: 0;
+        }
+        .wheel.back {
+            left: 0;
+        }
+        .terrain {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100px;
+            background-color: #795548;
+        }
+        .ramp {
+            position: absolute;
+            background-color: #8D6E63;
+            transform-origin: bottom left;
+        }
+        #score {
+            font-size: 24px;
+            margin: 10px;
+        }
+        #trick-text {
+            position: absolute;
+            font-size: 24px;
+            color: #4CAF50;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <h1>Motocross</h1>
+    <div id="score">Score: 0</div>
+    <div id="game-container">
+        <div class="bike">
+            <div class="bike-body">
+                <div class="wheel back"></div>
+                <div class="wheel front"></div>
+            </div>
+        </div>
+        <div id="trick-text"></div>
+        <div class="terrain"></div>
+        <div class="game-over">
+            Game Over!<br>
+            Press Space to Restart
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('game-container');
+        const bike = document.querySelector('.bike');
+        const scoreDisplay = document.getElementById('score');
+        const trickText = document.getElementById('trick-text');
+        const gameOverScreen = document.querySelector('.game-over');
+
+        let bikeX = 100;
+        let bikeY = 270;
+        let velocityX = 0;
+        let velocityY = 0;
+        let rotation = 0;
+        let score = 0;
+        let isGrounded = true;
+        let isTrick = false;
+        let gameLoop;
+        let rampInterval;
+        let gameOver = false;
+        let keys = {};
+
+        const GRAVITY = 0.5;
+        const JUMP_FORCE = -12;
+        const MOVE_SPEED = 5;
+        const MAX_ROTATION = 360;
+
+        function initGame() {
+            // Reset variables
+            bikeX = 100;
+            bikeY = 270;
+            velocityX = 0;
+            velocityY = 0;
+            rotation = 0;
+            score = 0;
+            isGrounded = true;
+            isTrick = false;
+            gameOver = false;
+            updateScore();
+
+            // Clear container
+            const ramps = document.querySelectorAll('.ramp');
+            ramps.forEach(ramp => ramp.remove());
+
+            // Reset bike position
+            updateBikePosition();
+
+            // Hide game over screen
+            gameOverScreen.style.display = 'none';
+
+            // Start game loops
+            if (gameLoop) cancelAnimationFrame(gameLoop);
+            if (rampInterval) clearInterval(rampInterval);
+
+            gameLoop = requestAnimationFrame(updateGame);
+            rampInterval = setInterval(createRamp, 3000);
+        }
+
+        function createRamp() {
+            if (gameOver) return;
+
+            const ramp = document.createElement('div');
+            ramp.className = 'ramp';
+            const height = Math.random() * 50 + 50;
+            const width = Math.random() * 50 + 100;
+            ramp.style.width = width + 'px';
+            ramp.style.height = height + 'px';
+            ramp.style.right = '-' + width + 'px';
+            ramp.style.bottom = '100px';
+            ramp.style.transform = 'skew(-30deg)';
+            container.appendChild(ramp);
+
+            const rampObj = {
+                element: ramp,
+                x: container.offsetWidth,
+                width: width,
+                height: height
+            };
+
+            return rampObj;
+        }
+
+        function updateGame() {
+            if (gameOver) return;
+
+            // Apply physics
+            if (!isGrounded) {
+                velocityY += GRAVITY;
+            }
+
+            // Move bike
+            if (keys['ArrowRight']) {
+                velocityX = MOVE_SPEED;
+            } else if (keys['ArrowLeft']) {
+                velocityX = -MOVE_SPEED;
+            } else {
+                velocityX *= 0.95;
+            }
+
+            // Update position
+            bikeX += velocityX;
+            bikeY += velocityY;
+
+            // Keep bike in bounds
+            if (bikeX < 0) bikeX = 0;
+            if (bikeX > container.offsetWidth - 60) bikeX = container.offsetWidth - 60;
+
+            // Ground collision
+            if (bikeY > 270) {
+                bikeY = 270;
+                velocityY = 0;
+                isGrounded = true;
+                if (isTrick) {
+                    score += 100;
+                    showTrickText('LANDED! +100');
+                    isTrick = false;
+                }
+            }
+
+            // Perform tricks
+            if (!isGrounded && keys['ArrowUp']) {
+                rotation += 10;
+                if (!isTrick && rotation >= 360) {
+                    isTrick = true;
+                }
+            } else {
+                rotation = 0;
+            }
+
+            // Update bike position and rotation
+            updateBikePosition();
+
+            // Move and check ramps
+            const ramps = document.querySelectorAll('.ramp');
+            ramps.forEach(ramp => {
+                const rampLeft = parseInt(ramp.style.right);
+                ramp.style.right = (rampLeft + MOVE_SPEED) + 'px';
+
+                // Check collision with ramp
+                const rampRect = ramp.getBoundingClientRect();
+                const bikeRect = bike.getBoundingClientRect();
+
+                if (bikeRect.right > rampRect.left && bikeRect.left < rampRect.right) {
+                    const rampHeight = parseInt(ramp.style.height);
+                    if (bikeY + 30 > container.offsetHeight - (100 + rampHeight)) {
+                        velocityY = JUMP_FORCE;
+                        isGrounded = false;
+                    }
+                }
+
+                // Remove off-screen ramps
+                if (rampLeft > container.offsetWidth) {
+                    ramp.remove();
+                }
+            });
+
+            // Update score
+            if (!isTrick) {
+                score++;
+                updateScore();
+            }
+
+            gameLoop = requestAnimationFrame(updateGame);
+        }
+
+        function updateBikePosition() {
+            bike.style.left = bikeX + 'px';
+            bike.style.top = bikeY + 'px';
+            bike.style.transform = `rotate(${rotation}deg)`;
+        }
+
+        function showTrickText(text) {
+            trickText.textContent = text;
+            trickText.style.left = (bikeX + 30) + 'px';
+            trickText.style.top = (bikeY - 30) + 'px';
+            trickText.style.opacity = 1;
+            setTimeout(() => {
+                trickText.style.opacity = 0;
+            }, 1000);
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${score}`;
+        }
+
+        function endGame() {
+            gameOver = true;
+            gameOverScreen.style.display = 'block';
+            gameOverScreen.innerHTML = `Final Score: ${score}<br>Press Space to Play Again`;
+            cancelAnimationFrame(gameLoop);
+            clearInterval(rampInterval);
+        }
+
+        // Event Listeners
+        document.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            if (e.key === ' ') {
+                if (gameOver) {
+                    initGame();
+                } else if (isGrounded) {
+                    velocityY = JUMP_FORCE;
+                    isGrounded = false;
+                }
+            }
+        });
+        document.addEventListener('keyup', e => keys[e.key] = false);
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html> 

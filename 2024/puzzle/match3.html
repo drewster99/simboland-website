@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match-3 Puzzle</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            margin: 0;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            width: 400px;
+            height: 400px;
+            background-color: #2a2a2a;
+            border: 2px solid #333;
+            position: relative;
+            margin: 20px auto;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 2px;
+            padding: 2px;
+        }
+        .gem {
+            width: 100%;
+            height: 100%;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            position: relative;
+        }
+        .gem:hover {
+            transform: scale(1.1);
+            z-index: 1;
+        }
+        .gem.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px white;
+            z-index: 2;
+        }
+        .gem::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: inherit;
+            background: linear-gradient(135deg, rgba(255,255,255,0.3), transparent 60%);
+        }
+        #score {
+            font-size: 24px;
+            margin: 10px;
+        }
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <h1>Match-3 Puzzle</h1>
+    <div id="score">Score: 0</div>
+    <div id="game-container"></div>
+    <div class="game-over">
+        Game Over!<br>
+        Click to Play Again
+    </div>
+
+    <script>
+        const container = document.getElementById('game-container');
+        const gameOverScreen = document.querySelector('.game-over');
+        const scoreDisplay = document.getElementById('score');
+
+        const COLORS = [
+            '#f44336', // Red
+            '#4CAF50', // Green
+            '#2196F3', // Blue
+            '#FFC107', // Yellow
+            '#9C27B0', // Purple
+            '#FF5722'  // Orange
+        ];
+
+        const BOARD_SIZE = 8;
+        let board = [];
+        let score = 0;
+        let selectedGem = null;
+        let isSwapping = false;
+
+        function initGame() {
+            score = 0;
+            updateScore();
+            container.innerHTML = '';
+            board = [];
+
+            // Create initial board
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                board[y] = [];
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    let color;
+                    do {
+                        color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                    } while (
+                        (x >= 2 && board[y][x-1] === color && board[y][x-2] === color) ||
+                        (y >= 2 && board[y-1][x] === color && board[y-2][x] === color)
+                    );
+                    
+                    board[y][x] = color;
+                    createGem(x, y, color);
+                }
+            }
+
+            // Hide game over screen
+            gameOverScreen.style.display = 'none';
+        }
+
+        function createGem(x, y, color) {
+            const gem = document.createElement('div');
+            gem.className = 'gem';
+            gem.style.backgroundColor = color;
+            gem.dataset.x = x;
+            gem.dataset.y = y;
+            
+            gem.addEventListener('click', () => handleGemClick(gem));
+            container.appendChild(gem);
+            return gem;
+        }
+
+        function handleGemClick(gem) {
+            if (isSwapping) return;
+
+            if (!selectedGem) {
+                // First gem selected
+                selectedGem = gem;
+                gem.classList.add('selected');
+            } else if (selectedGem === gem) {
+                // Same gem clicked, deselect it
+                selectedGem.classList.remove('selected');
+                selectedGem = null;
+            } else {
+                // Second gem selected, try to swap
+                const x1 = parseInt(selectedGem.dataset.x);
+                const y1 = parseInt(selectedGem.dataset.y);
+                const x2 = parseInt(gem.dataset.x);
+                const y2 = parseInt(gem.dataset.y);
+
+                if (isAdjacent(x1, y1, x2, y2)) {
+                    swapGems(x1, y1, x2, y2);
+                }
+
+                selectedGem.classList.remove('selected');
+                selectedGem = null;
+            }
+        }
+
+        function isAdjacent(x1, y1, x2, y2) {
+            return (Math.abs(x1 - x2) === 1 && y1 === y2) ||
+                   (Math.abs(y1 - y2) === 1 && x1 === x2);
+        }
+
+        async function swapGems(x1, y1, x2, y2) {
+            isSwapping = true;
+
+            // Swap colors in board array
+            const temp = board[y1][x1];
+            board[y1][x1] = board[y2][x2];
+            board[y2][x2] = temp;
+
+            // Update visual representation
+            const gems = container.querySelectorAll('.gem');
+            const gem1 = gems[y1 * BOARD_SIZE + x1];
+            const gem2 = gems[y2 * BOARD_SIZE + x2];
+
+            gem1.style.backgroundColor = board[y1][x1];
+            gem2.style.backgroundColor = board[y2][x2];
+
+            // Check for matches
+            const matches = findMatches();
+            if (matches.length > 0) {
+                await removeMatches(matches);
+                await fillBoard();
+                // Continue checking for cascading matches
+                while (findMatches().length > 0) {
+                    await removeMatches(findMatches());
+                    await fillBoard();
+                }
+            } else {
+                // Swap back if no matches
+                board[y1][x1] = board[y2][x2];
+                board[y2][x2] = temp;
+                gem1.style.backgroundColor = board[y1][x1];
+                gem2.style.backgroundColor = board[y2][x2];
+            }
+
+            isSwapping = false;
+        }
+
+        function findMatches() {
+            const matches = new Set();
+
+            // Check horizontal matches
+            for (let y = 0; y < BOARD_SIZE; y++) {
+                for (let x = 0; x < BOARD_SIZE - 2; x++) {
+                    if (board[y][x] === board[y][x+1] && board[y][x] === board[y][x+2]) {
+                        matches.add(`${x},${y}`);
+                        matches.add(`${x+1},${y}`);
+                        matches.add(`${x+2},${y}`);
+                    }
+                }
+            }
+
+            // Check vertical matches
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                for (let y = 0; y < BOARD_SIZE - 2; y++) {
+                    if (board[y][x] === board[y+1][x] && board[y][x] === board[y+2][x]) {
+                        matches.add(`${x},${y}`);
+                        matches.add(`${x},${y+1}`);
+                        matches.add(`${x},${y+2}`);
+                    }
+                }
+            }
+
+            return Array.from(matches).map(pos => {
+                const [x, y] = pos.split(',').map(Number);
+                return { x, y };
+            });
+        }
+
+        async function removeMatches(matches) {
+            score += matches.length * 10;
+            updateScore();
+
+            // Animate and remove matches
+            const gems = container.querySelectorAll('.gem');
+            matches.forEach(({x, y}) => {
+                const gem = gems[y * BOARD_SIZE + x];
+                gem.style.transform = 'scale(0)';
+                board[y][x] = null;
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        async function fillBoard() {
+            // Move existing gems down
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                let bottomY = BOARD_SIZE - 1;
+                for (let y = BOARD_SIZE - 1; y >= 0; y--) {
+                    if (board[y][x] !== null) {
+                        if (bottomY !== y) {
+                            board[bottomY][x] = board[y][x];
+                            board[y][x] = null;
+                            const gems = container.querySelectorAll('.gem');
+                            const gem = gems[y * BOARD_SIZE + x];
+                            gem.style.backgroundColor = board[bottomY][x];
+                        }
+                        bottomY--;
+                    }
+                }
+            }
+
+            // Fill empty spaces with new gems
+            for (let x = 0; x < BOARD_SIZE; x++) {
+                for (let y = 0; y < BOARD_SIZE; y++) {
+                    if (board[y][x] === null) {
+                        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                        board[y][x] = color;
+                        const gems = container.querySelectorAll('.gem');
+                        const gem = gems[y * BOARD_SIZE + x];
+                        gem.style.backgroundColor = color;
+                        gem.style.transform = 'scale(1)';
+                    }
+                }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${score}`;
+        }
+
+        // Event Listeners
+        container.addEventListener('click', e => {
+            if (gameOverScreen.style.display === 'block') {
+                initGame();
+            }
+        });
+
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html> 
