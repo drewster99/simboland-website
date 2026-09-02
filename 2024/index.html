@@ -268,6 +268,13 @@
             iframe.style.width = '100%';
             iframe.style.height = '100%';
             iframe.style.border = 'none';
+            // Most of these games bind keydown to their OWN document, which only receives key
+            // events while the iframe holds focus. Without this the game loads and then silently
+            // ignores every arrow key, which looks exactly like a broken game.
+            iframe.setAttribute('tabindex', '0');
+            iframe.addEventListener('load', function () {
+                try { iframe.contentWindow.focus(); } catch (ignored) {}
+            });
             
             switch(gameName) {
                 case 'shooter':
@@ -315,6 +322,12 @@
 
             gameContainer.innerHTML = '';
             gameContainer.appendChild(iframe);
+            // If the player clicks the page chrome the game goes deaf; clicking back into the
+            // game area hands focus to it again.
+            gameContainer.onclick = function () {
+                try { iframe.contentWindow.focus(); } catch (ignored) {}
+            };
+            iframe.focus();
         }
 
         function returnToMenu() {
