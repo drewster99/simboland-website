@@ -3,7 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simboland - Welcome to Our World</title>
+    <title>Simboland – Free Original Browser Games</title>
+    <meta name="description" content="24 original, free games that run instantly in your browser: puzzles, arcade action, strategy and racing. No downloads, no accounts. Plus the 2024 archive.">
+    <link rel="canonical" href="https://simboland.com/">
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Simboland">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:title" content="Simboland – Welcome to Our World">
+    <meta property="og:description" content="24 original, free games that run instantly in your browser: puzzles, arcade action, strategy and racing. No downloads, no accounts. Plus the 2024 archive.">
+    <meta property="og:url" content="https://simboland.com/">
+    <meta property="og:image" content="https://simboland.com/og/home.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Simboland homepage: the SIMBOLAND title over a night landscape with mountains, a castle and a village">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Simboland – Welcome to Our World">
+    <meta name="twitter:description" content="24 original, free games that run instantly in your browser: puzzles, arcade action, strategy and racing. No downloads, no accounts. Plus the 2024 archive.">
+    <meta name="twitter:image" content="https://simboland.com/og/home.jpg">
+    <meta name="twitter:image:alt" content="Simboland homepage: the SIMBOLAND title over a night landscape with mountains, a castle and a village">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": "https://simboland.com/#website",
+      "name": "Simboland",
+      "alternateName": "Simboland – Welcome to Our World",
+      "url": "https://simboland.com/",
+      "description": "24 original, free games that run instantly in your browser: puzzles, arcade action, strategy and racing. No downloads, no accounts. Plus the 2024 archive.",
+      "image": "https://simboland.com/og/home.jpg",
+      "inLanguage": "en"
+    }
+    </script>
     <style>
         * {
             margin: 0;
@@ -794,76 +828,76 @@
 
     // ---- Game catalogue -------------------------------------------------
     const GAMES = [
-        { file:'rcempire.html', name:'RC Empire', icon:'\u{1F3CE}\uFE0F', tag:'Racing', cat:'racing',
+        { file:'rcempire', name:'RC Empire', icon:'\u{1F3CE}\uFE0F', tag:'Racing', cat:'racing',
           color:'#ff8c42', dark:'#e8622a',
           desc:'Race, drift and bet your way from a stock basher to a carbon-fibre monster \u2014 and learn how real RC cars work.' },
-        { file:'towers.html', name:'Iron Line', icon:'\u{1F5FC}', tag:'Strategy', cat:'strategy',
+        { file:'towers', name:'Iron Line', icon:'\u{1F5FC}', tag:'Strategy', cat:'strategy',
           color:'#22d3ee', dark:'#0891b2',
           desc:'Twenty-four waves, four tower types and one winding road. Hold the line or watch it break.' },
-        { file:'starfall.html', name:'Starfall', icon:'\u{1F680}', tag:'Action', cat:'action',
+        { file:'starfall', name:'Starfall', icon:'\u{1F680}', tag:'Action', cat:'action',
           color:'#a78bfa', dark:'#7c3aed',
           desc:'Arcade space shooter with spread cannons, smart bombs and a capital ship every fifth wave.' },
-        { file:'cascade.html', name:'Cascade', icon:'\u{1F9CA}', tag:'Puzzle', cat:'puzzle',
+        { file:'cascade', name:'Cascade', icon:'\u{1F9CA}', tag:'Puzzle', cat:'puzzle',
           color:'#f472b6', dark:'#be185d',
           desc:'Stack the falling blocks, clear the rows, survive the speed. Hold piece, ghost drop and hard drop included.' },
-        { file:'gemfall.html', name:'Gemfall', icon:'\u{1F48E}', tag:'Puzzle', cat:'puzzle',
+        { file:'gemfall', name:'Gemfall', icon:'\u{1F48E}', tag:'Puzzle', cat:'puzzle',
           color:'#2dd4bf', dark:'#0d9488',
           desc:'Swap gems, chain cascades, build strikers and novas. Beat the target before the moves run out.' },
-        { file:'minefield.html', name:'Minefield', icon:'\u{1F4A3}', tag:'Puzzle', cat:'puzzle',
+        { file:'minefield', name:'Minefield', icon:'\u{1F4A3}', tag:'Puzzle', cat:'puzzle',
           color:'#fb923c', dark:'#ea580c',
           desc:'The logic classic, three board sizes, with chording and a best-time clock for each.' },
-        { file:'runner.html', name:'Skyline Run', icon:'\u{1F3D9}\uFE0F', tag:'Endless', cat:'action',
+        { file:'runner', name:'Skyline Run', icon:'\u{1F3D9}\uFE0F', tag:'Endless', cat:'action',
           color:'#fda4af', dark:'#e11d48', fresh:true,
           desc:'Rooftop endless runner with double jumps, slides under beams, and gaps that open up as you speed up.' },
-        { file:'foundry.html', name:'Foundry', icon:'\u{1F528}', tag:'Idle', cat:'strategy',
+        { file:'foundry', name:'Foundry', icon:'\u{1F528}', tag:'Idle', cat:'strategy',
           color:'#fb923c', dark:'#c2410c', fresh:true,
           desc:'Strike the anvil, hire smiths, automate the whole valley, then reforge for a permanent bonus.' },
-        { file:'stacker.html', name:'Stacker', icon:'\u{1F9F1}', tag:'Timing', cat:'action',
+        { file:'stacker', name:'Stacker', icon:'\u{1F9F1}', tag:'Timing', cat:'action',
           color:'#f0abfc', dark:'#a21caf', fresh:true,
           desc:'Drop each block on the one below. Overhang gets sliced off; a perfect landing grows the tower back.' },
-        { file:'whack.html', name:'Molepatch', icon:'\u{1F411}', tag:'Reaction', cat:'action',
+        { file:'whack', name:'Molepatch', icon:'\u{1F411}', tag:'Reaction', cat:'action',
           color:'#eab308', dark:'#a16207', fresh:true,
           desc:'Forty-five seconds of moles. Gold ones pay triple, rabbits cost you time.' },
-        { file:'memory.html', name:'Memory', icon:'\u{1F9E0}', tag:'Memory', cat:'puzzle',
+        { file:'memory', name:'Memory', icon:'\u{1F9E0}', tag:'Memory', cat:'puzzle',
           color:'#7dd3fc', dark:'#0284c7', fresh:true,
           desc:'Match every pair in as few moves as you can, on three board sizes with a best score for each.' },
-        { file:'dash.html', name:'Dash', icon:'\u{1F3C3}', tag:'Platformer', cat:'action',
+        { file:'dash', name:'Dash', icon:'\u{1F3C3}', tag:'Platformer', cat:'action',
           color:'#38bdf8', dark:'#0284c7',
           desc:'Eight handmade levels of running and jumping. Coyote time, variable jump height, squashable enemies.' },
-        { file:'solitaire.html', name:'Solitaire', icon:'\u{1F0CF}', tag:'Cards', cat:'puzzle',
+        { file:'solitaire', name:'Solitaire', icon:'\u{1F0CF}', tag:'Cards', cat:'puzzle',
           color:'#4ade80', dark:'#16a34a',
           desc:'Klondike with undo, auto-finish and a double-click straight to the foundations.' },
-        { file:'sudoku.html', name:'Sudoku', icon:'\u{1F522}', tag:'Puzzle', cat:'puzzle',
+        { file:'sudoku', name:'Sudoku', icon:'\u{1F522}', tag:'Puzzle', cat:'puzzle',
           color:'#60a5fa', dark:'#2563eb',
           desc:'Generated fresh every time and guaranteed to have exactly one solution. Pencil notes included.' },
-        { file:'wordsmith.html', name:'Wordsmith', icon:'\u{1F4DD}', tag:'Word', cat:'puzzle',
+        { file:'wordsmith', name:'Wordsmith', icon:'\u{1F4DD}', tag:'Word', cat:'puzzle',
           color:'#a3e635', dark:'#65a30d',
           desc:'Six guesses at a five-letter word, with a keyboard that remembers what you have ruled out.' },
-        { file:'fuse.html', name:'Fuse', icon:'\u{1F9E9}', tag:'Puzzle', cat:'puzzle',
+        { file:'fuse', name:'Fuse', icon:'\u{1F9E9}', tag:'Puzzle', cat:'puzzle',
           color:'#f59e0b', dark:'#b45309',
           desc:'Slide the board, merge matching tiles, chase 2048 and then keep going.' },
-        { file:'driftfield.html', name:'Driftfield', icon:'\u2604\uFE0F', tag:'Action', cat:'action',
+        { file:'driftfield', name:'Driftfield', icon:'\u2604\uFE0F', tag:'Action', cat:'action',
           color:'#cbd5e1', dark:'#64748b',
           desc:'Drifting rocks that split when you shoot them, momentum steering, and saucers that shoot back.' },
-        { file:'crossing.html', name:'Crossing', icon:'\u{1F438}', tag:'Arcade', cat:'action',
+        { file:'crossing', name:'Crossing', icon:'\u{1F438}', tag:'Arcade', cat:'action',
           color:'#34d399', dark:'#059669',
           desc:'Hop the traffic, ride the logs, get five of yours home before the road gets you.' },
-        { file:'reflex.html', name:'Reflex', icon:'\u{1F3AF}', tag:'Skill', cat:'action',
+        { file:'reflex', name:'Reflex', icon:'\u{1F3AF}', tag:'Skill', cat:'action',
           color:'#fb7185', dark:'#be123c',
           desc:'Sixty seconds of targets. Measures your real reaction time in milliseconds.' },
-        { file:'connect4.html', name:'Four In A Row', icon:'\u{1F534}', tag:'Strategy', cat:'strategy',
+        { file:'connect4', name:'Four In A Row', icon:'\u{1F534}', tag:'Strategy', cat:'strategy',
           color:'#facc15', dark:'#ca8a04',
           desc:'Drop discs against a computer that actually searches ahead. Three levels, and hard is hard.' },
-        { file:'sequence.html', name:'Sequence', icon:'\u{1F3B5}', tag:'Memory', cat:'puzzle',
+        { file:'sequence', name:'Sequence', icon:'\u{1F3B5}', tag:'Memory', cat:'puzzle',
           color:'#e879f9', dark:'#a21caf',
           desc:'Watch the pattern, repeat it, watch it grow. Each pad has its own note.' },
-        { file:'pool.html', name:'8-Ball Pool', icon:'\u{1F3B1}', tag:'Sports', cat:'action',
+        { file:'pool', name:'8-Ball Pool', icon:'\u{1F3B1}', tag:'Sports', cat:'action',
           color:'#3498db', dark:'#2980b9',
           desc:'Line up your shots and sink all your balls before your opponent does.' },
-        { file:'breaker.html', name:'Brick Breaker', icon:'\u{1F9F1}', tag:'Arcade', cat:'action',
+        { file:'breaker', name:'Brick Breaker', icon:'\u{1F9F1}', tag:'Arcade', cat:'action',
           color:'#e74c3c', dark:'#c0392b',
           desc:'Smash every brick with your ball and paddle. How many levels can you clear?' },
-        { file:'snake.html', name:'Snake', icon:'\u{1F40D}', tag:'Arcade', cat:'action',
+        { file:'snake', name:'Snake', icon:'\u{1F40D}', tag:'Arcade', cat:'action',
           color:'#2ecc71', dark:'#27ae60',
           desc:'Guide the snake, eat, grow longer. Do not hit the walls or yourself.' },
     ];
