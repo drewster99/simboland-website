@@ -1,0 +1,12 @@
+# Repo-only files that must not be served by the simboland-website Worker.
+.git
+.gitignore
+.wrangler
+.DS_Store
+__PUBLIC_REPO
+README.md
+CLAUDE.md
+wrangler.toml
+wrangler.json
+wrangler.jsonc
+node_modules

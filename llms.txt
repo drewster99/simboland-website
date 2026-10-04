@@ -1,0 +1,49 @@
+# Simboland
+
+> Simboland is a hub of original, free games that run instantly in a web browser: puzzles, arcade action, strategy and racing. No downloads, no accounts.
+
+- Every game is a single self-contained web page; play it by opening its URL. No sign-up or download is needed.
+- Where a game keeps best scores or progress, it stores them in the player's browser (localStorage), not in an account.
+- The homepage arcade (https://simboland.com/) lists every current game; early 2024 games live in the archive (https://simboland.com/2024/).
+
+## Games
+
+- [RC Empire](https://simboland.com/rcempire): RC Car Racing and Tuning Game. Race, drift and bet your way from a stock basher to a carbon-fibre monster, and learn how real RC cars work. Free to play in your browser.
+- [Iron Line](https://simboland.com/towers): Tower Defense Game. Twenty-four waves, four tower types and one winding road. Place, upgrade and sell towers to hold the line. Free in your browser.
+- [Starfall](https://simboland.com/starfall): Arcade Space Shooter. Arcade space shooter with spread cannons, smart bombs and a capital ship every fifth wave. Fifteen waves stand between you and the far side.
+- [Cascade](https://simboland.com/cascade): Falling-Block Puzzle Game. Stack the falling blocks, clear the rows, survive the speed. Hold piece, ghost drop and hard drop included. Free in your browser.
+- [Gemfall](https://simboland.com/gemfall): Match-3 Puzzle Game. Swap gems, chain cascades, build strikers and novas. Beat the target score before the moves run out. Free match-3 in your browser.
+- [Minefield](https://simboland.com/minefield): Mine-Clearing Logic Puzzle. The logic classic: uncover every square that is not a mine. Three board sizes, chording, and a best-time clock for each. Free in your browser.
+- [Skyline Run](https://simboland.com/runner): Endless Runner Game. Rooftop endless runner with double jumps, slides under beams, and gaps that open up as you speed up. Free to play in your browser.
+- [Foundry](https://simboland.com/foundry): Idle Forging Game. Strike the anvil, hire smiths, automate the whole valley, then reforge for a permanent bonus. A free idle game in your browser.
+- [Stacker](https://simboland.com/stacker): Block-Stacking Timing Game. Drop each block on the one below. Overhang gets sliced off; a perfect landing grows the tower back. Free to play in your browser.
+- [Molepatch](https://simboland.com/whack): Whack-a-Mole Game. Forty-five seconds of moles across nine holes. Gold ones pay triple, rabbits cost you time. Free to play in your browser.
+- [Memory](https://simboland.com/memory): Pair-Matching Memory Game. Match every pair in as few moves as you can, on three board sizes with a best score for each. Free to play in your browser.
+- [Dash](https://simboland.com/dash): Platformer Game. Eight handmade levels of running and jumping. Coyote time, variable jump height, squashable enemies. Free to play in your browser.
+- [Solitaire](https://simboland.com/solitaire): Klondike Solitaire. Klondike solitaire with undo, auto-finish and a double-click straight to the foundations. Free to play in your browser.
+- [Sudoku](https://simboland.com/sudoku): Sudoku Puzzles. Sudoku generated fresh every time and guaranteed to have exactly one solution. Pencil notes included. Free to play in your browser.
+- [Wordsmith](https://simboland.com/wordsmith): Five-Letter Word Game. Six guesses at a five-letter word, with a keyboard that remembers what you have ruled out. Free word puzzle in your browser.
+- [Fuse](https://simboland.com/fuse): 2048 Tile-Merging Puzzle. Slide the board, merge matching tiles, chase 2048 and then keep going. Keyboard or swipe. Free to play in your browser.
+- [Driftfield](https://simboland.com/driftfield): Rock-Blasting Space Shooter. Drifting rocks that split when you shoot them, momentum steering, and saucers that shoot back. Free arcade shooter in your browser.
+- [Crossing](https://simboland.com/crossing): Road and River Hopping Game. Hop the traffic, ride the logs, get five of yours home before the road gets you. Free arcade game in your browser.
+- [Reflex](https://simboland.com/reflex): Reaction Time Test Game. Sixty seconds of targets that measures your real reaction time in milliseconds. Leave the red decoys alone. Free in your browser.
+- [Four In A Row](https://simboland.com/connect4): Strategy Game vs the Computer. Drop discs against a computer that actually searches ahead. Easy, normal and hard levels, and hard is hard. Free in your browser.
+- [Sequence](https://simboland.com/sequence): Pattern Memory Game. Watch the pattern, repeat it, watch it grow. Four pads, each with its own note, and it speeds up as you go. Free in your browser.
+- [8-Ball Pool](https://simboland.com/pool): Two-Player Pool Game. Two-player 8-ball pool: line up your shots and sink all your solids or stripes before your opponent does. Free in your browser.
+- [Brick Breaker](https://simboland.com/breaker): Brick-Breaking Arcade Game. Smash every brick with your ball and paddle, using mouse or touch. How many levels can you clear? Free in your browser.
+- [Snake](https://simboland.com/snake): Classic Snake Game. Guide the snake, eat, grow longer, and do not hit the walls or yourself. Arrow keys or WASD. Free classic arcade game in your browser.
+
+## Optional
+
+- [The 2024 Archive](https://simboland.com/2024/): Where Simboland started: eleven early browser games from 2024, restored and playable.
+- [Pixel Shooter (2024)](https://simboland.com/2024/action/pixel-shooter): A top-down shooter where enemies close in from every side. Free to play in your browser.
+- [Pixel Platformer (2024)](https://simboland.com/2024/action/pixel-platformer): Jump between platforms and collect coins. Free to play in your browser.
+- [Zombie Defense (2024)](https://simboland.com/2024/action/zombie-defense): Hold off waves of zombies and watch your ammo. Free to play in your browser.
+- [Snake (2024)](https://simboland.com/2024/classic/snake): Classic Snake with easy, medium and hard speeds and a high score. Free to play in your browser.
+- [Pong (2024)](https://simboland.com/2024/classic/pong): The original table-tennis arcade game, played against a computer paddle. Free in your browser.
+- [Gem Match (2024)](https://simboland.com/2024/puzzle/match3): Swap gems to match three or more and score. Free match-3 puzzle in your browser.
+- [Sliding Puzzle (2024)](https://simboland.com/2024/puzzle/sliding): Slide the numbered tiles on a 4×4 board back into order in as few moves as you can.
+- [Pixel Racer (2024)](https://simboland.com/2024/racing/pixel-racer): Race down the road, dodge obstacles and grab coins as your speed climbs. Free in your browser.
+- [Motocross (2024)](https://simboland.com/2024/racing/motocross): Ride a motocross bike over ramps and pull off tricks for points. Free in your browser.
+- [Mini Soccer (2024)](https://simboland.com/2024/sports/soccer): Two-player 2D soccer on one keyboard, WASD against the arrow keys. Free in your browser.
+- [Basketball (2024)](https://simboland.com/2024/sports/basketball): Shoot as many hoops as you can before the 60-second clock runs out. Free in your browser.

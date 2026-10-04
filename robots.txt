@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://simboland.com/sitemap.xml
